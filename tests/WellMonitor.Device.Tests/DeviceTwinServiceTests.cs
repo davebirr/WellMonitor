@@ -25,11 +25,12 @@ namespace WellMonitor.Device.Tests
             mockConfig.Setup(c => c.GetValue("CurrentThreshold", 4.5)).Returns(4.5);
             mockConfig.Setup(c => c.GetValue("RelayDebounceMs", 500)).Returns(500);
             var gpioOptions = new GpioOptions();
+            var cameraOptions = new CameraOptions();
             var mockLogger = new Mock<ILogger>();
             var service = new DeviceTwinService();
 
             // Act
-            var result = await service.FetchAndApplyConfigAsync(mockDeviceClient.Object, mockConfig.Object, gpioOptions, mockLogger.Object);
+            var result = await service.FetchAndApplyConfigAsync(mockDeviceClient.Object, mockConfig.Object, gpioOptions, cameraOptions, mockLogger.Object);
 
             // Assert
             Assert.Equal(7.5, result.CurrentThreshold);

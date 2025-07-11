@@ -1,7 +1,10 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Azure.Devices.Client;
 using WellMonitor.Device.Services;
+using WellMonitor.Device.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,6 +45,9 @@ namespace WellMonitor.Device.Services
                 // Validate database connectivity
                 await ValidateDatabaseAsync();
                 
+                // Load device twin configuration if available
+                await LoadDeviceTwinConfigurationAsync();
+                
                 _logger.LogInformation("Dependency validation completed successfully");
             }
             catch (Exception ex)
@@ -58,7 +64,7 @@ namespace WellMonitor.Device.Services
             var validationErrors = new List<string>();
             
             // Check Azure IoT Hub connection string
-            var iotHubConnectionString = _secretsService.GetIotHubConnectionString();
+            var iotHubConnectionString = await _secretsService.GetIotHubConnectionStringAsync();
             if (string.IsNullOrWhiteSpace(iotHubConnectionString) || IsPlaceholderValue(iotHubConnectionString))
             {
                 validationErrors.Add("Azure IoT Hub connection string is missing");
@@ -69,7 +75,7 @@ namespace WellMonitor.Device.Services
             }
             
             // Check storage connection string (optional but recommended)
-            var storageConnectionString = _secretsService.GetStorageConnectionString();
+            var storageConnectionString = await _secretsService.GetStorageConnectionStringAsync();
             if (string.IsNullOrWhiteSpace(storageConnectionString) || IsPlaceholderValue(storageConnectionString))
             {
                 _logger.LogWarning("Azure Storage connection string is missing - some features may be limited");
@@ -80,7 +86,7 @@ namespace WellMonitor.Device.Services
             }
             
             // Check local encryption key
-            var encryptionKey = _secretsService.GetLocalEncryptionKey();
+            var encryptionKey = await _secretsService.GetLocalEncryptionKeyAsync();
             if (string.IsNullOrWhiteSpace(encryptionKey) || IsPlaceholderValue(encryptionKey))
             {
                 validationErrors.Add("Local encryption key is missing");
@@ -117,6 +123,48 @@ namespace WellMonitor.Device.Services
             await Task.CompletedTask;
         }
         
+        private async Task LoadDeviceTwinConfigurationAsync()
+        {
+            try
+            {
+                var iotHubConnectionString = await _secretsService.GetIotHubConnectionStringAsync();
+                
+                if (string.IsNullOrWhiteSpace(iotHubConnectionString) || IsPlaceholderValue(iotHubConnectionString))
+                {
+                    _logger.LogWarning("Azure IoT Hub connection string not available - device twin configuration will be skipped");
+                    return;
+                }
+
+                using var scope = _serviceScopeFactory.CreateScope();
+                var deviceTwinService = scope.ServiceProvider.GetRequiredService<IDeviceTwinService>();
+                var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+                var gpioOptions = scope.ServiceProvider.GetRequiredService<GpioOptions>();
+                var cameraOptions = scope.ServiceProvider.GetRequiredService<CameraOptions>();
+                
+                // Create device client
+                var deviceClient = DeviceClient.CreateFromConnectionString(iotHubConnectionString);
+                
+                // Load device twin configuration
+                var deviceTwinConfig = await deviceTwinService.FetchAndApplyConfigAsync(
+                    deviceClient, 
+                    configuration, 
+                    gpioOptions, 
+                    cameraOptions, 
+                    _logger);
+                
+                _logger.LogInformation("Device twin configuration loaded successfully");
+                
+                // Store the device client for use by other services
+                // TODO: Consider using a singleton pattern for device client management
+                
+                await deviceClient.CloseAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load device twin configuration - will use default values");
+            }
+        }
+
         private static bool IsPlaceholderValue(string value)
         {
             var placeholderIndicators = new[]

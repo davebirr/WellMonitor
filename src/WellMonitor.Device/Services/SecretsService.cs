@@ -4,9 +4,11 @@ namespace WellMonitor.Device.Services
 {
     public interface ISecretsService
     {
-        string? GetIotHubConnectionString();
-        string? GetStorageConnectionString();
-        string? GetLocalEncryptionKey();
+        Task<string?> GetIotHubConnectionStringAsync();
+        Task<string?> GetStorageConnectionStringAsync();
+        Task<string?> GetLocalEncryptionKeyAsync();
+        Task<string?> GetPowerAppApiKeyAsync();
+        Task<string?> GetOcrApiKeyAsync();
     }
 
     public class SecretsService : ISecretsService
@@ -17,8 +19,10 @@ namespace WellMonitor.Device.Services
             _configuration = configuration;
         }
 
-        public string? GetIotHubConnectionString() => _configuration["IotHubConnectionString"];
-        public string? GetStorageConnectionString() => _configuration["AzureStorageConnectionString"];
-        public string? GetLocalEncryptionKey() => _configuration["LocalEncryptionKey"];
+        public Task<string?> GetIotHubConnectionStringAsync() => Task.FromResult(_configuration["IotHubConnectionString"]);
+        public Task<string?> GetStorageConnectionStringAsync() => Task.FromResult(_configuration["AzureStorageConnectionString"]);
+        public Task<string?> GetLocalEncryptionKeyAsync() => Task.FromResult(_configuration["LocalEncryptionKey"]);
+        public Task<string?> GetPowerAppApiKeyAsync() => Task.FromResult(_configuration["PowerAppApiKey"]);
+        public Task<string?> GetOcrApiKeyAsync() => Task.FromResult(_configuration["OcrApiKey"]);
     }
 }

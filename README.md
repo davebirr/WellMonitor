@@ -22,7 +22,9 @@ This project is a .NET 8 application written in C# for the Raspberry Pi 4B. It m
 wellmonitor/
 ├── docs/                          # Documentation and setup guides
 │   ├── DataLoggingAndSync.md      # Data logging & sync strategy
-│   └── DataModel.md               # Data model and schema
+│   ├── DataModel.md               # Data model and schema
+│   ├── SecretsManagement.md       # Secure secrets management guide
+│   └── RaspberryPiDeploymentGuide.md # Pi deployment instructions
 ├── src/
 │   ├── WellMonitor.Device/        # Main device app (Raspberry Pi)
 │   ├── WellMonitor.Shared/        # Shared DTOs, models, utilities
@@ -56,9 +58,10 @@ See [docs/DataModel.md](docs/DataModel.md) for the full data model and schema.
 - Secure SSH access (use keys, disable password login)
 - Update and install dependencies (see `docs/Raspberry Pi 4 Azure IoT Setup Guide.md`)
 
-### 2. Azure IoT Hub Registration
+### 2. Azure IoT Hub Registration & Secrets Management
 - Register your device in Azure IoT Hub
-- Save the device connection string securely
+- Set up secure secrets management (see `docs/SecretsManagement.md`)
+- Choose from: Azure Key Vault, Environment Variables, or Hybrid approach
 
 ### 3. Build and Deploy
 - Build the .NET 8 application for ARM (Raspberry Pi)
@@ -91,12 +94,16 @@ See [docs/DataModel.md](docs/DataModel.md) for the full data model and schema.
 - POCOs and DTOs for data
 - Follow .NET naming conventions and best practices
 
-## Security
-- Keep your Pi and dependencies updated
-- Use SSH keys, not passwords
-- Never share your device connection string or private SSH key
+## Security & Secrets Management
+- 🔐 **Secure secrets management** with Azure Key Vault, Environment Variables, or Hybrid approach
+- 🔒 Keep your Pi and dependencies updated
+- 🔑 Use SSH keys, not passwords
+- 🚨 Never commit secrets to version control
+- 📖 **Full security guide**: [`docs/SecretsManagement.md`](docs/SecretsManagement.md)
 
 ## References
+- [docs/SecretsManagement.md](docs/SecretsManagement.md) - Secure secrets management guide
+- [docs/RaspberryPiDeploymentGuide.md](docs/RaspberryPiDeploymentGuide.md) - Complete deployment guide
 - [docs/Raspberry Pi 4 Azure IoT Setup Guide.md](docs/Raspberry%20Pi%204%20Azure%20IoT%20Setup%20Guide.md)
 - Azure IoT Hub Documentation
 - Azure IoT Device SDK for .NET

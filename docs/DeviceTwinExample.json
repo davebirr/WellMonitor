@@ -10,7 +10,18 @@
       "alertConfig": { "dryCount": 3, "rCYCCount": 2 },
       "displayUnits": "amps",
       "powerAppEnabled": true,
-      "firmwareUpdateUrl": ""
+      "firmwareUpdateUrl": "",
+      "cameraWidth": 1920,
+      "cameraHeight": 1080,
+      "cameraQuality": 95,
+      "cameraTimeoutMs": 5000,
+      "cameraWarmupTimeMs": 2000,
+      "cameraRotation": 0,
+      "cameraBrightness": 50,
+      "cameraContrast": 10,
+      "cameraSaturation": 0,
+      "cameraEnablePreview": false,
+      "cameraDebugImagePath": "/home/pi/wellmonitor/debug_images"
     },
     "reported": {
       "firmwareVersion": "1.0.0",

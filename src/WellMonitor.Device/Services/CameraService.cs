@@ -1,13 +1,213 @@
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
+using WellMonitor.Device.Models;
 
 namespace WellMonitor.Device.Services
 {
+    /// <summary>
+    /// Service for capturing images from the Raspberry Pi camera
+    /// </summary>
     public class CameraService : ICameraService
     {
-        public Task<byte[]> CaptureImageAsync()
+        private readonly ILogger<CameraService> _logger;
+        private readonly CameraOptions _cameraOptions;
+
+        public CameraService(ILogger<CameraService> logger, CameraOptions cameraOptions)
         {
-            // TODO: Implement actual camera logic
-            return Task.FromResult(new byte[0]);
+            _logger = logger;
+            _cameraOptions = cameraOptions;
+        }
+
+        /// <summary>
+        /// Captures an image from the Raspberry Pi camera using libcamera-still
+        /// </summary>
+        /// <returns>Image data as byte array</returns>
+        public async Task<byte[]> CaptureImageAsync()
+        {
+            try
+            {
+                _logger.LogDebug("Starting camera capture...");
+                
+                // Generate a temporary filename for the image
+                var tempImagePath = Path.GetTempFileName() + ".jpg";
+                
+                try
+                {
+                    // Build the libcamera-still command
+                    var arguments = BuildCameraArguments(tempImagePath);
+                    
+                    _logger.LogDebug("Executing camera command: libcamera-still {Arguments}", arguments);
+                    
+                    // Execute the camera command
+                    var process = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = "libcamera-still",
+                            Arguments = arguments,
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            CreateNoWindow = true
+                        }
+                    };
+
+                    var startTime = DateTime.UtcNow;
+                    process.Start();
+                    
+                    using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(_cameraOptions.TimeoutMs));
+                    
+                    try
+                    {
+                        await process.WaitForExitAsync(cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.LogError("Camera capture timed out after {TimeoutMs}ms", _cameraOptions.TimeoutMs);
+                        process.Kill();
+                        throw new TimeoutException($"Camera capture timed out after {_cameraOptions.TimeoutMs}ms");
+                    }
+
+                    var duration = DateTime.UtcNow - startTime;
+                    _logger.LogDebug("Camera capture completed in {Duration}ms", duration.TotalMilliseconds);
+
+                    if (process.ExitCode != 0)
+                    {
+                        var error = await process.StandardError.ReadToEndAsync();
+                        _logger.LogError("Camera capture failed with exit code {ExitCode}: {Error}", process.ExitCode, error);
+                        throw new InvalidOperationException($"Camera capture failed: {error}");
+                    }
+
+                    // Check if image file was created
+                    if (!File.Exists(tempImagePath))
+                    {
+                        _logger.LogError("Camera capture completed but no image file was created");
+                        throw new InvalidOperationException("Camera capture completed but no image file was created");
+                    }
+
+                    // Read the captured image
+                    var imageBytes = await File.ReadAllBytesAsync(tempImagePath);
+                    
+                    if (imageBytes.Length == 0)
+                    {
+                        _logger.LogError("Camera capture created empty image file");
+                        throw new InvalidOperationException("Camera capture created empty image file");
+                    }
+
+                    _logger.LogInformation("Successfully captured image: {Size} bytes", imageBytes.Length);
+
+                    // Save debug copy if configured
+                    if (!string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                    {
+                        await SaveDebugImageAsync(imageBytes);
+                    }
+
+                    return imageBytes;
+                }
+                finally
+                {
+                    // Clean up temporary file
+                    if (File.Exists(tempImagePath))
+                    {
+                        try
+                        {
+                            File.Delete(tempImagePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to delete temporary image file: {TempPath}", tempImagePath);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Camera capture failed");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Builds the command line arguments for libcamera-still
+        /// </summary>
+        private string BuildCameraArguments(string outputPath)
+        {
+            var args = new List<string>
+            {
+                "--output", $"\"{outputPath}\"",
+                "--width", _cameraOptions.Width.ToString(),
+                "--height", _cameraOptions.Height.ToString(),
+                "--quality", _cameraOptions.Quality.ToString(),
+                "--timeout", _cameraOptions.WarmupTimeMs.ToString(),
+                "--encoding", "jpg",
+                "--immediate" // Take photo immediately after preview
+            };
+
+            // Add rotation if specified
+            if (_cameraOptions.Rotation != 0)
+            {
+                args.Add("--rotation");
+                args.Add(_cameraOptions.Rotation.ToString());
+            }
+
+            // Add brightness adjustment
+            if (_cameraOptions.Brightness != 50)
+            {
+                args.Add("--brightness");
+                args.Add((_cameraOptions.Brightness / 100.0).ToString("F2"));
+            }
+
+            // Add contrast adjustment
+            if (_cameraOptions.Contrast != 0)
+            {
+                args.Add("--contrast");
+                args.Add((_cameraOptions.Contrast / 100.0).ToString("F2"));
+            }
+
+            // Add saturation adjustment
+            if (_cameraOptions.Saturation != 0)
+            {
+                args.Add("--saturation");
+                args.Add((_cameraOptions.Saturation / 100.0).ToString("F2"));
+            }
+
+            // Disable preview unless explicitly enabled
+            if (!_cameraOptions.EnablePreview)
+            {
+                args.Add("--nopreview");
+            }
+
+            return string.Join(" ", args);
+        }
+
+        /// <summary>
+        /// Saves a debug copy of the captured image
+        /// </summary>
+        private async Task SaveDebugImageAsync(byte[] imageBytes)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                    return;
+
+                // Create debug directory if it doesn't exist
+                Directory.CreateDirectory(_cameraOptions.DebugImagePath);
+
+                // Create filename with timestamp
+                var fileName = $"pump_reading_{DateTime.UtcNow:yyyyMMdd_HHmmss}.jpg";
+                var debugPath = Path.Combine(_cameraOptions.DebugImagePath, fileName);
+
+                await File.WriteAllBytesAsync(debugPath, imageBytes);
+                _logger.LogDebug("Debug image saved to: {DebugPath}", debugPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to save debug image");
+            }
         }
     }
 }

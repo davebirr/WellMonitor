@@ -10,22 +10,41 @@ using WellMonitor.Device.Models;
 using WellMonitor.Device.Data;
 
 // 1. Dependency Injection: Register all services and logging
-// Register options for GpioService (pattern can be repeated for other services)
+// Register options for GpioService and CameraService
 var gpioOptions = new GpioOptions
 {
     RelayDebounceMs = 500 // default, will be overwritten below
 };
 
+var cameraOptions = new CameraOptions
+{
+    Width = 1920,
+    Height = 1080,
+    Quality = 85,
+    TimeoutMs = 30000,
+    WarmupTimeMs = 2000,
+    Rotation = 0,
+    Brightness = 50,
+    Contrast = 0,
+    Saturation = 0,
+    EnablePreview = false,
+    DebugImagePath = "./debug_images" // Save debug images for troubleshooting
+};
+
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureAppConfiguration((context, config) =>
     {
-        // Add secrets.json file for local testing
+        // Add secrets.json file for local testing only
         config.AddJsonFile("secrets.json", optional: true, reloadOnChange: true);
+        
+        // Add environment variables for production
+        config.AddEnvironmentVariables();
     })
     .ConfigureServices((context, services) =>
     {
-        // Register options pattern for GpioService
+        // Register options pattern for services
         services.AddSingleton(gpioOptions);
+        services.AddSingleton(cameraOptions);
         
         // Register Entity Framework DbContext
         services.AddDbContext<WellMonitorDbContext>(options =>
@@ -39,7 +58,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ISyncService, SyncService>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
         services.AddSingleton<IDeviceTwinService, DeviceTwinService>();
-        services.AddSingleton<ISecretsService, SecretsService>();
+        
+        // Register secrets service based on environment
+        RegisterSecretsService(services, context.Configuration);
 
         // Register hosted services for orderly startup
         // Order matters: Dependencies first, then hardware, then workers
@@ -65,18 +86,13 @@ var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
 // Example: Set up DeviceClient for device twin access (if using Azure IoT SDK)
 // This is now handled in the background after dependency validation
+// Note: For now, we'll check this synchronously since the main method isn't async
 var secretsService = host.Services.GetRequiredService<ISecretsService>();
-string? iotHubConnectionString = secretsService.GetIotHubConnectionString();
+// We'll validate the connection string during the background service startup instead
 
-if (!string.IsNullOrEmpty(iotHubConnectionString))
-{
-    logger.LogInformation("Azure IoT Hub connection configured");
-    // Device twin configuration will be handled by background services
-}
-else
-{
-    logger.LogWarning("Azure IoT Hub connection string not found - some features may be limited");
-}
+logger.LogInformation("Secrets service configured for mode: {SecretsMode}", 
+    Environment.GetEnvironmentVariable("WELLMONITOR_SECRETS_MODE") ?? "hybrid");
+// Device twin configuration will be handled by background services
 
 // 4. Global Error Handling and Logging
 // Logging is configured by default. Global error handling for unhandled exceptions.
@@ -106,4 +122,25 @@ logger.LogInformation("Startup process: Dependencies → Hardware → Background
 
 // 6. Main Application Entry Point
 // The Host.RunAsync() method will start all hosted services in the correct order
+await host.RunAsync();
+
+// Helper method to register the appropriate secrets service
+static void RegisterSecretsService(IServiceCollection services, IConfiguration configuration)
+{
+    var secretsMode = configuration["SecretsMode"] ?? Environment.GetEnvironmentVariable("WELLMONITOR_SECRETS_MODE") ?? "hybrid";
+    
+    switch (secretsMode.ToLowerInvariant())
+    {
+        case "keyvault":
+            services.AddSingleton<ISecretsService, KeyVaultSecretsService>();
+            break;
+        case "environment":
+            services.AddSingleton<ISecretsService, EnvironmentSecretsService>();
+            break;
+        case "hybrid":
+        default:
+            services.AddSingleton<ISecretsService, HybridSecretsService>();
+            break;
+    }
+}
 await host.RunAsync();

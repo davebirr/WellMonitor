@@ -40,7 +40,29 @@ cd ~/WellMonitor
 dotnet build --configuration Release
 ```
 
-### **Step 3: Run the Application**
+### **Step 3: Configure Secrets Management**
+
+**For Production Deployment:**
+```bash
+# Set up environment variables (recommended)
+export WELLMONITOR_SECRETS_MODE=environment
+export WELLMONITOR_IOTHUB_CONNECTION_STRING="HostName=YourIoTHub.azure-devices.net;DeviceId=YourDevice;SharedAccessKey=YourKey"
+export WELLMONITOR_STORAGE_CONNECTION_STRING="your-storage-connection-string"
+export WELLMONITOR_LOCAL_ENCRYPTION_KEY="your-encryption-key"
+```
+
+**For Development/Testing:**
+```bash
+# Use the hybrid approach (default)
+export WELLMONITOR_SECRETS_MODE=hybrid
+# Application will use secrets.json for development
+```
+
+⚠️ **Important**: Never commit secrets.json to version control in production!
+
+📖 **For detailed secrets management setup**, see: [`docs/SecretsManagement.md`](SecretsManagement.md)
+
+### **Step 4: Run the Application**
 ```bash
 cd ~/WellMonitor/src/WellMonitor.Device
 dotnet run --configuration Release
