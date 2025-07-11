@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using WellMonitor.Device.Services;
 using WellMonitor.Shared.Models;
 using System;
@@ -15,19 +16,19 @@ namespace WellMonitor.Device.Services
     public class MonitoringBackgroundService : BackgroundService
     {
         private readonly ICameraService _cameraService;
-        private readonly IDatabaseService _databaseService;
         private readonly IGpioService _gpioService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ILogger<MonitoringBackgroundService> _logger;
         private readonly TimeSpan _monitoringInterval = TimeSpan.FromSeconds(30); // Monitor every 30 seconds
         
         public MonitoringBackgroundService(
             ICameraService cameraService,
-            IDatabaseService databaseService,
             IGpioService gpioService,
+            IServiceScopeFactory serviceScopeFactory,
             ILogger<MonitoringBackgroundService> logger)
         {
             _cameraService = cameraService;
-            _databaseService = databaseService;
+            _serviceScopeFactory = serviceScopeFactory;
             _gpioService = gpioService;
             _logger = logger;
         }
@@ -71,7 +72,7 @@ namespace WellMonitor.Device.Services
             // For now, simulate reading values
             var reading = new Reading
             {
-                Id = new Random().Next(1, int.MaxValue), // Generate random ID for now
+                // Don't set ID - let the database generate it
                 TimestampUtc = DateTime.UtcNow,
                 CurrentAmps = 5.2, // TODO: Extract from OCR
                 Status = "Normal", // TODO: Extract from OCR
@@ -79,7 +80,9 @@ namespace WellMonitor.Device.Services
             };
 
             // Log the reading to local database
-            await _databaseService.SaveReadingAsync(reading);
+            using var scope = _serviceScopeFactory.CreateScope();
+            var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+            await databaseService.AddReadingAsync(reading); // Use AddReadingAsync instead of SaveReadingAsync
             
             // Check for abnormal conditions
             if (reading.Status == "rcyc")
@@ -103,7 +106,7 @@ namespace WellMonitor.Device.Services
                 // Log the relay action
                 var relayLog = new RelayActionLog
                 {
-                    Id = new Random().Next(1, int.MaxValue), // Generate random ID for now
+                    // Don't set ID - let the database generate it
                     TimestampUtc = DateTime.UtcNow,
                     Action = "PowerCycle",
                     Reason = "RapidCycling"
@@ -114,7 +117,9 @@ namespace WellMonitor.Device.Services
                 await Task.Delay(5000); // 5 second delay
                 _gpioService.SetRelayState(true);
 
-                await _databaseService.SaveRelayActionLogAsync(relayLog);
+                using var scope = _serviceScopeFactory.CreateScope();
+                var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+                await databaseService.AddRelayActionLogAsync(relayLog); // Use AddRelayActionLogAsync instead of SaveRelayActionLogAsync
                 
                 _logger.LogInformation("Successfully cycled relay power due to rapid cycling");
             }

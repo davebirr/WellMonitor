@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using WellMonitor.Device.Services;
 using System;
 using System.Threading;
@@ -14,17 +15,17 @@ namespace WellMonitor.Device.Services
     public class TelemetryBackgroundService : BackgroundService
     {
         private readonly ITelemetryService _telemetryService;
-        private readonly IDatabaseService _databaseService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ILogger<TelemetryBackgroundService> _logger;
         private readonly TimeSpan _telemetryInterval = TimeSpan.FromMinutes(5); // Send telemetry every 5 minutes
         
         public TelemetryBackgroundService(
             ITelemetryService telemetryService,
-            IDatabaseService databaseService,
+            IServiceScopeFactory serviceScopeFactory,
             ILogger<TelemetryBackgroundService> logger)
         {
             _telemetryService = telemetryService;
-            _databaseService = databaseService;
+            _serviceScopeFactory = serviceScopeFactory;
             _logger = logger;
         }
 
@@ -62,8 +63,11 @@ namespace WellMonitor.Device.Services
         {
             try
             {
+                using var scope = _serviceScopeFactory.CreateScope();
+                var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
+                
                 // Get unsent readings from database
-                var unsentReadings = await _databaseService.GetUnsentReadingsAsync();
+                var unsentReadings = await databaseService.GetUnsentReadingsAsync();
                 
                 foreach (var reading in unsentReadings)
                 {
@@ -75,7 +79,7 @@ namespace WellMonitor.Device.Services
                         await _telemetryService.SendTelemetryAsync(reading);
                         reading.Synced = true;
                         // Update the reading in the database to mark as synced
-                        await _databaseService.SaveReadingAsync(reading);
+                        await databaseService.SaveReadingAsync(reading);
                         _logger.LogDebug("Sent telemetry for reading {ReadingId}", reading.Id);
                     }
                     catch (Exception ex)
@@ -86,7 +90,7 @@ namespace WellMonitor.Device.Services
                 }
 
                 // Also send pending relay action logs
-                var unsentRelayLogs = await _databaseService.GetUnsentRelayActionLogsAsync();
+                var unsentRelayLogs = await databaseService.GetUnsentRelayActionLogsAsync();
                 
                 foreach (var log in unsentRelayLogs)
                 {
@@ -97,7 +101,7 @@ namespace WellMonitor.Device.Services
                     {
                         await _telemetryService.SendRelayActionLogAsync(log);
                         log.Synced = true;
-                        await _databaseService.SaveRelayActionLogAsync(log);
+                        await databaseService.SaveRelayActionLogAsync(log);
                         _logger.LogDebug("Sent relay action log {LogId}", log.Id);
                     }
                     catch (Exception ex)

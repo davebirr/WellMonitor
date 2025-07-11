@@ -31,6 +31,13 @@ namespace WellMonitor.Device.Services
         {
             _logger.LogInformation("Starting hardware initialization...");
             
+            // Check if we're in development mode
+            var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? 
+                             Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? 
+                             "Production";
+            
+            var isDevelopment = environment.Equals("Development", StringComparison.OrdinalIgnoreCase);
+            
             try
             {
                 // Initialize GPIO hardware
@@ -44,7 +51,16 @@ namespace WellMonitor.Device.Services
             catch (Exception ex)
             {
                 _logger.LogCritical(ex, "Hardware initialization failed");
-                throw; // Fail fast if hardware initialization fails
+                
+                if (isDevelopment)
+                {
+                    _logger.LogWarning("Development mode: Continuing despite hardware initialization failure");
+                    _logger.LogWarning("Hardware-dependent features may not work correctly");
+                }
+                else
+                {
+                    throw; // Fail fast if hardware initialization fails in production
+                }
             }
         }
 
