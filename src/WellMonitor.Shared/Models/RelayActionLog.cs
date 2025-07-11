@@ -8,5 +8,7 @@ namespace WellMonitor.Shared.Models
         public DateTime TimestampUtc { get; set; }
         public string Action { get; set; } = string.Empty; // e.g., Cycle, ManualOverride
         public string? Reason { get; set; }
+        public bool Synced { get; set; }
+        public string? Error { get; set; }
     }
 }
