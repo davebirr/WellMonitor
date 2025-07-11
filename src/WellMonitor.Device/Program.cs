@@ -62,6 +62,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ITelemetryService, TelemetryService>();
         services.AddSingleton<IDeviceTwinService, DeviceTwinService>();
         
+        // Register OCR services
+        RegisterOcrServices(services, context.Configuration);
+        
         // Register secrets service based on environment
         RegisterSecretsService(services, context.Configuration);
 
@@ -145,6 +148,26 @@ static void RegisterSecretsService(IServiceCollection services, IConfiguration c
             services.AddSingleton<ISecretsService, HybridSecretsService>();
             break;
     }
+}
+
+// Helper method to register OCR services
+static void RegisterOcrServices(IServiceCollection services, IConfiguration configuration)
+{
+    // Configure OCR options from configuration
+    services.Configure<OcrOptions>(configuration.GetSection("OCR"));
+    
+    // Register OCR providers
+    services.AddSingleton<IOcrProvider, TesseractOcrProvider>();
+    services.AddSingleton<IOcrProvider, AzureCognitiveServicesOcrProvider>();
+    
+    // Register main OCR service
+    services.AddSingleton<IOcrService, OcrService>();
+    
+    // Register dynamic OCR service for device twin configuration
+    services.AddSingleton<IDynamicOcrService, DynamicOcrService>();
+    
+    // Register OCR testing service
+    services.AddSingleton<OcrTestingService>();
 }
 
 // Simple .env file loader

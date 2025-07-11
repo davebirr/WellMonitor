@@ -4,15 +4,16 @@ This project is a .NET 8 application written in C# for the Raspberry Pi 4B. It m
 
 ## Features
 
-- Captures images of the well pump's current display using a camera
-- Uses OCR (Tesseract or Azure Cognitive Services) to extract current readings and status messages
-- Calculates energy consumption (kWh) per hour, day, and month
-- Detects abnormal states: 'Dry' (low current) and 'rcyc' (rapid cycling)
-- Controls a relay via GPIO to cycle power when 'rcyc' is detected (with debounce)
-- Sends telemetry (timestamp, current, status, energy) to Azure IoT Hub
-- Receives direct method calls from PowerApp to cycle power
-- Exposes device status and control endpoints for PowerApp integration
-- Logs all relay actions and manual overrides
+- **🎯 Dual OCR Engine Support**: Tesseract OCR (offline) and Azure Cognitive Services (cloud) with automatic fallback
+- **📱 Dynamic Configuration**: Remote OCR provider switching via Azure IoT Hub device twin
+- **📷 Image Processing**: Captures images of the well pump's current display using a camera
+- **🔍 Advanced OCR**: Extracts current readings and status messages from LED displays
+- **⚡ Energy Monitoring**: Calculates energy consumption (kWh) per hour, day, and month
+- **🚨 Abnormal State Detection**: Detects 'Dry' (low current) and 'rcyc' (rapid cycling) conditions
+- **🔧 Automated Control**: Controls relay via GPIO to cycle power when 'rcyc' is detected
+- **☁️ Azure IoT Integration**: Sends telemetry and receives commands via Azure IoT Hub
+- **📱 PowerApp Integration**: Allows tenants to monitor status and manually cycle power
+- **📊 Comprehensive Logging**: Local SQLite database with cloud synchronization
 
 
 ## Project Structure
@@ -23,10 +24,14 @@ wellmonitor/
 ├── docs/                          # Documentation and setup guides
 │   ├── DataLoggingAndSync.md      # Data logging & sync strategy
 │   ├── DataModel.md               # Data model and schema
+│   ├── OCR-Implementation.md      # Comprehensive OCR documentation
 │   ├── SecretsManagement.md       # Secure secrets management guide
 │   └── RaspberryPiDeploymentGuide.md # Pi deployment instructions
 ├── src/
 │   ├── WellMonitor.Device/        # Main device app (Raspberry Pi)
+│   │   ├── Services/              # OCR, Camera, GPIO, Database services
+│   │   ├── Models/                # Configuration and data models
+│   │   └── Controllers/           # API controllers
 │   ├── WellMonitor.Shared/        # Shared DTOs, models, utilities
 │   └── WellMonitor.AzureFunctions/# Azure Functions for PowerApp integration
 ├── tests/                        # Unit/integration tests
@@ -102,6 +107,7 @@ See [docs/DataModel.md](docs/DataModel.md) for the full data model and schema.
 - 📖 **Full security guide**: [`docs/SecretsManagement.md`](docs/SecretsManagement.md)
 
 ## References
+- [docs/OCR-Implementation.md](docs/OCR-Implementation.md) - Comprehensive OCR documentation
 - [docs/SecretsManagement.md](docs/SecretsManagement.md) - Secure secrets management guide
 - [docs/RaspberryPiDeploymentGuide.md](docs/RaspberryPiDeploymentGuide.md) - Complete deployment guide
 - [docs/Raspberry Pi 4 Azure IoT Setup Guide.md](docs/Raspberry%20Pi%204%20Azure%20IoT%20Setup%20Guide.md)

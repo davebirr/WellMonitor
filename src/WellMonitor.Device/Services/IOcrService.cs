@@ -1,57 +1,76 @@
-using System;
-using System.Threading.Tasks;
+using WellMonitor.Device.Models;
 
-namespace WellMonitor.Device.Services
+namespace WellMonitor.Device.Services;
+
+/// <summary>
+/// OCR service interface for extracting text from LED display images
+/// Designed for high-reliability industrial monitoring applications
+/// </summary>
+public interface IOcrService
 {
     /// <summary>
-    /// Service for performing Optical Character Recognition (OCR) on captured images
-    /// to extract current readings and status from the pump display
+    /// Extract text from an image file with confidence scoring
     /// </summary>
-    public interface IOcrService
-    {
-        /// <summary>
-        /// Processes an image to extract current reading and status information
-        /// </summary>
-        /// <param name="imageBytes">The image data captured from the camera</param>
-        /// <returns>OCR result containing current draw and status</returns>
-        Task<OcrResult> ProcessImageAsync(byte[] imageBytes);
-    }
+    /// <param name="imagePath">Path to the image file</param>
+    /// <param name="cancellationToken">Cancellation token for async operations</param>
+    /// <returns>OCR result with extracted text and confidence metrics</returns>
+    Task<OcrResult> ExtractTextAsync(string imagePath, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Result of OCR processing containing extracted values
+    /// Extract text from image stream (for real-time processing)
     /// </summary>
-    public class OcrResult
-    {
-        public bool Success { get; set; }
-        public double CurrentAmps { get; set; }
-        public string Status { get; set; } = string.Empty;
-        public string? ErrorMessage { get; set; }
-        public double Confidence { get; set; }
-    }
+    /// <param name="imageStream">Image data stream</param>
+    /// <param name="cancellationToken">Cancellation token for async operations</param>
+    /// <returns>OCR result with extracted text and confidence metrics</returns>
+    Task<OcrResult> ExtractTextAsync(Stream imageStream, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// OCR service implementation using Tesseract or Azure Cognitive Services
+    /// Extract text from image bytes (backward compatibility)
     /// </summary>
-    public class OcrService : IOcrService
-    {
-        public async Task<OcrResult> ProcessImageAsync(byte[] imageBytes)
-        {
-            // TODO: Implement OCR processing
-            // Options:
-            // 1. Tesseract OCR for offline processing
-            // 2. Azure Cognitive Services for cloud-based OCR
-            // 3. Custom image processing pipeline
-            
-            await Task.Delay(100); // Simulate processing time
-            
-            // Placeholder implementation - replace with actual OCR
-            return new OcrResult
-            {
-                Success = true,
-                CurrentAmps = 5.2,
-                Status = "Normal",
-                Confidence = 0.95
-            };
-        }
-    }
+    /// <param name="imageBytes">Image data as byte array</param>
+    /// <param name="cancellationToken">Cancellation token for async operations</param>
+    /// <returns>OCR result with extracted text and confidence metrics</returns>
+    Task<OcrResult> ExtractTextAsync(byte[] imageBytes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Parse pump reading from raw OCR text
+    /// </summary>
+    /// <param name="rawText">Raw text extracted from OCR</param>
+    /// <returns>Parsed pump reading with status and current value</returns>
+    PumpReading ParsePumpReading(string rawText);
+
+    /// <summary>
+    /// Preprocess image for better OCR accuracy
+    /// </summary>
+    /// <param name="inputPath">Input image path</param>
+    /// <param name="outputPath">Output path for preprocessed image</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if preprocessing was successful</returns>
+    Task<bool> PreprocessImageAsync(string inputPath, string outputPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Validate OCR quality and confidence
+    /// </summary>
+    /// <param name="ocrResult">OCR result to validate</param>
+    /// <returns>True if OCR quality meets minimum standards</returns>
+    bool ValidateOcrQuality(OcrResult ocrResult);
+
+    /// <summary>
+    /// Get OCR processing statistics
+    /// </summary>
+    /// <returns>Current OCR statistics</returns>
+    OcrStatistics GetStatistics();
+
+    /// <summary>
+    /// Reset OCR processing statistics
+    /// </summary>
+    void ResetStatistics();
+
+    /// <summary>
+    /// Process image and return pump reading (high-level method)
+    /// </summary>
+    /// <param name="imageBytes">Image data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Parsed pump reading</returns>
+    Task<PumpReading> ProcessImageAsync(byte[] imageBytes, CancellationToken cancellationToken = default);
 }
