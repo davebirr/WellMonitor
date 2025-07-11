@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "desired": {
+      "currentThreshold": 4.5,
+      "cycleTimeThreshold": 30,
+      "relayDebounceMs": 500,
+      "syncIntervalMinutes": 5,
+      "logRetentionDays": 14,
+      "ocrMode": "tesseract",
+      "alertConfig": { "dryCount": 3, "rCYCCount": 2 },
+      "displayUnits": "amps",
+      "powerAppEnabled": true,
+      "firmwareUpdateUrl": ""
+    },
+    "reported": {
+      "firmwareVersion": "1.0.0",
+      "lastSyncTimeUtc": "2025-07-10T14:00:00Z",
+      "lastError": "",
+      "status": "Normal",
+      "currentDrawAmps": 5.2,
+      "energyKWh": { "hour": 0.52, "day": 3.8, "month": 112.4 },
+      "relayState": "on",
+      "localLogUsageMb": 12.3,
+      "uptimeSeconds": 3600,
+      "lastOcrResult": "5.2"
+    }
+  }
+}

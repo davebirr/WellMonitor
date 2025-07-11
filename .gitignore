@@ -1,0 +1,46 @@
+# .gitignore for WellMonitor.Device and related projects
+
+# Ignore user secrets and sensitive config
+src/WellMonitor.Device/secrets.json
+/home/pi/.wellmonitor-secrets.json
+*.secrets.json
+
+# Ignore build outputs
+bin/
+obj/
+
+# Ignore user-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignore VS Code settings
+.vscode/
+
+# Ignore Python virtual environments
+venv/
+.env/
+.iotenv/
+
+# Ignore logs and SQLite database files (if not needed in repo)
+*.log
+*.db
+*.sqlite
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore backup files
+*~
+*.swp
+
+# Ignore test results
+TestResults/
+
+# Ignore Azure deployment artifacts
+.terraform/
+.terraform.lock.hcl
+
+# Ignore any other local-only or sensitive files
