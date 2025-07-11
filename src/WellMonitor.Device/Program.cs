@@ -28,12 +28,15 @@ var cameraOptions = new CameraOptions
     Contrast = 0,
     Saturation = 0,
     EnablePreview = false,
-    DebugImagePath = "./debug_images" // Save debug images for troubleshooting
+    DebugImagePath = "debug_images" // Relative to application directory
 };
 
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureAppConfiguration((context, config) =>
     {
+        // Load .env file if it exists (for development)
+        LoadEnvironmentFile();
+        
         // Add secrets.json file for local testing only
         config.AddJsonFile("secrets.json", optional: true, reloadOnChange: true);
         
@@ -141,6 +144,53 @@ static void RegisterSecretsService(IServiceCollection services, IConfiguration c
         default:
             services.AddSingleton<ISecretsService, HybridSecretsService>();
             break;
+    }
+}
+
+// Simple .env file loader
+static void LoadEnvironmentFile()
+{
+    try
+    {
+        var envPaths = new[] 
+        {
+            ".env",                    // Current directory
+            "../../../.env",           // Project root from bin/Debug/net8.0
+            "../../../../.env"         // Project root from src/WellMonitor.Device
+        };
+        
+        foreach (var envPath in envPaths)
+        {
+            if (File.Exists(envPath))
+            {
+                var lines = File.ReadAllLines(envPath);
+                foreach (var line in lines)
+                {
+                    if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                        continue;
+                        
+                    var parts = line.Split('=', 2);
+                    if (parts.Length == 2)
+                    {
+                        var key = parts[0].Trim();
+                        var value = parts[1].Trim();
+                        
+                        // Remove quotes if present
+                        if (value.StartsWith('"') && value.EndsWith('"'))
+                            value = value[1..^1];
+                            
+                        Environment.SetEnvironmentVariable(key, value);
+                    }
+                }
+                
+                Console.WriteLine($"Loaded environment variables from: {envPath}");
+                break;
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Warning: Could not load .env file: {ex.Message}");
     }
 }
 await host.RunAsync();

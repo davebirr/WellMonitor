@@ -194,12 +194,17 @@ namespace WellMonitor.Device.Services
                 if (string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
                     return;
 
+                // Make path relative to application directory
+                var debugDirectory = Path.IsPathRooted(_cameraOptions.DebugImagePath) 
+                    ? _cameraOptions.DebugImagePath 
+                    : Path.Combine(AppContext.BaseDirectory, _cameraOptions.DebugImagePath);
+
                 // Create debug directory if it doesn't exist
-                Directory.CreateDirectory(_cameraOptions.DebugImagePath);
+                Directory.CreateDirectory(debugDirectory);
 
                 // Create filename with timestamp
                 var fileName = $"pump_reading_{DateTime.UtcNow:yyyyMMdd_HHmmss}.jpg";
-                var debugPath = Path.Combine(_cameraOptions.DebugImagePath, fileName);
+                var debugPath = Path.Combine(debugDirectory, fileName);
 
                 await File.WriteAllBytesAsync(debugPath, imageBytes);
                 _logger.LogDebug("Debug image saved to: {DebugPath}", debugPath);
