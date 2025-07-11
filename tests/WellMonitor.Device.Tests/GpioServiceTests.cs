@@ -9,12 +9,44 @@ namespace WellMonitor.Device.Tests
     public class GpioServiceTests
     {
         [Fact]
-        public void GpioService_InitializesWithOptions()
+        public void GpioService_InitializesCorrectly()
         {
-            var options = new GpioOptions { RelayDebounceMs = 123 };
-            var service = new GpioService(options);
-            Assert.Equal(123, options.RelayDebounceMs);
+            var service = new GpioService();
+            Assert.NotNull(service);
+            Assert.False(service.GetRelayState()); // Default state should be false
         }
+
+        [Fact]
+        public void GpioService_SetRelayState_UpdatesState()
+        {
+            var service = new GpioService();
+            
+            service.SetRelayState(true);
+            Assert.True(service.GetRelayState());
+            
+            service.SetRelayState(false);
+            Assert.False(service.GetRelayState());
+        }
+
+        [Fact]
+        public void GpioService_RelayStateChanged_FiresEvent()
+        {
+            var service = new GpioService();
+            bool eventFired = false;
+            bool newState = false;
+
+            service.RelayStateChanged += (sender, args) =>
+            {
+                eventFired = true;
+                newState = args.NewState;
+            };
+
+            service.SetRelayState(true);
+            
+            Assert.True(eventFired);
+            Assert.True(newState);
+        }
+        
         // Add more tests for relay control, debounce, etc. with mocks as needed
     }
 }
