@@ -162,7 +162,7 @@ sudo raspi-config
    source ~/iotenv/bin/activate
    
    # Verify OCR dependencies are installed
-   python3 -c "import pytesseract, PIL; print('OCR dependencies OK')"
+   python3 -c "import pytesseract, PIL, cv2, numpy; print('OCR dependencies OK')"
    
    # Run WellMonitor with Python OCR support
    cd WellMonitor
@@ -185,13 +185,13 @@ sudo raspi-config
    pip install azure-iot-device
    
    # Install OCR dependencies for WellMonitor
-   pip install pytesseract pillow
+   pip install pytesseract pillow opencv-python numpy
    
    # Install other IoT packages as needed
    pip install sense-hat picamera
    ```
 
-   **Note:** The WellMonitor application requires `pytesseract` and `pillow` for OCR functionality. These must be installed in the virtual environment to avoid "externally managed environment" errors on modern Python installations.
+   **Note:** The WellMonitor application requires `pytesseract`, `pillow`, `opencv-python`, and `numpy` for OCR functionality. These must be installed in the virtual environment to avoid "externally managed environment" errors on modern Python installations.
 
    To activate the environment later:
    ```bash
