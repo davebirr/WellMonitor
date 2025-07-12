@@ -265,3 +265,54 @@ sudo raspi-config
    Azure IoT Hub Documentation
    Azure IoT Device SDK for Python
    Raspberry Pi Documentation
+
+---
+
+## 10a. Troubleshooting OCR and Debug Images
+
+### Check Debug Images
+```bash
+# Check if debug images are being saved
+ls -la ~/WellMonitor/debug_images/
+ls -la ~/WellMonitor/src/WellMonitor.Device/debug_images/
+
+# If directory doesn't exist, create it manually for testing
+mkdir -p ~/WellMonitor/debug_images
+
+# Check current working directory when app runs
+pwd
+ls -la
+```
+
+### OCR Provider Debugging
+```bash
+# Check Python OCR dependencies in virtual environment
+source ~/iotenv/bin/activate
+python3 -c "import pytesseract, PIL, cv2, numpy; print('OCR dependencies OK')"
+
+# Test Python OCR manually
+python3 -c "
+import pytesseract
+from PIL import Image
+import cv2
+import numpy as np
+print('Python OCR test:', pytesseract.get_tesseract_version())
+"
+```
+
+### Device Twin Configuration Check
+Log into Azure IoT Hub and verify your device twin desired properties include:
+```json
+{
+  "ocrProvider": "Python",
+  "debugImageSaveEnabled": true,
+  "cameraDebugImagePath": "debug_images"
+}
+```
+
+**Known Issues:**
+- OCR service initializes before Python provider is ready (timing issue)
+- Debug images should now save if both flags are set correctly
+- Device twin validation warnings are resolved ✅
+
+---

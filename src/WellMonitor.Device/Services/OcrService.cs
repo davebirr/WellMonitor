@@ -62,18 +62,18 @@ public partial class OcrService : IOcrService
         // Select primary and fallback providers based on configuration
         var providerList = _providers.ToList();
         
-        _logger.LogDebug("Selecting OCR providers. Requested provider: {RequestedProvider}", options.Provider);
-        _logger.LogDebug("Available providers: {ProviderCount}", providerList.Count);
+        _logger.LogInformation("Selecting OCR providers. Requested provider: {RequestedProvider}", options.Provider);
+        _logger.LogInformation("Available providers: {ProviderCount}", providerList.Count);
         
         foreach (var provider in providerList)
         {
-            _logger.LogDebug("Provider: {ProviderName}, Available: {IsAvailable}", provider.Name, provider.IsAvailable);
+            _logger.LogInformation("Provider: {ProviderName}, Available: {IsAvailable}", provider.Name, provider.IsAvailable);
         }
         
         // Check for available (initialized) providers
         var availableProviders = providerList.Where(p => p.IsAvailable).ToList();
         
-        _logger.LogDebug("Available providers count: {Count}", availableProviders.Count);
+        _logger.LogInformation("Available providers count: {Count}", availableProviders.Count);
         
         if (availableProviders.Count == 0)
         {
@@ -85,7 +85,7 @@ public partial class OcrService : IOcrService
         else
         {
             var requestedProvider = availableProviders.FirstOrDefault(p => p.Name == options.Provider);
-            _logger.LogDebug("Requested provider '{RequestedProvider}' found: {Found}", options.Provider, requestedProvider != null);
+            _logger.LogInformation("Requested provider '{RequestedProvider}' found: {Found}", options.Provider, requestedProvider != null);
             
             _primaryProvider = requestedProvider 
                 ?? availableProviders.FirstOrDefault() 
