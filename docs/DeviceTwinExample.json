@@ -21,7 +21,7 @@
       "cameraSaturation": 0,
       "cameraEnablePreview": false,
       "cameraDebugImagePath": "debug_images",
-      "ocrProvider": "Tesseract",
+      "ocrProvider": "Python",
       "ocrMinimumConfidence": 0.7,
       "ocrTesseractLanguage": "eng",
       "ocrTesseractEngineMode": 3,

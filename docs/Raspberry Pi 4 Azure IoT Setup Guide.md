@@ -171,6 +171,8 @@ sudo raspi-config
 
    **Important:** Always activate the Python virtual environment before starting WellMonitor to ensure OCR functionality works properly.
 
+   **OCR Provider Recommendation:** For Raspberry Pi ARM64, use `"ocrProvider": "Python"` in your Azure IoT Hub device twin configuration. The .NET Tesseract library has ARM64 compatibility issues, but Python OCR provides excellent performance and reliability on Pi hardware.
+
 ---
 
 ## 4. Set Up Python Virtual Environment
