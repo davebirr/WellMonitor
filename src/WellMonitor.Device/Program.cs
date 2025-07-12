@@ -49,6 +49,15 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton(gpioOptions);
         services.AddSingleton(cameraOptions);
         
+        // Register additional options classes
+        services.AddSingleton(new AlertOptions());
+        services.AddSingleton(new MonitoringOptions());
+        services.AddSingleton(new ImageQualityOptions());
+        services.AddSingleton(new DebugOptions());
+        services.AddSingleton(new PumpAnalysisOptions());
+        services.AddSingleton(new PowerManagementOptions());
+        services.AddSingleton(new StatusDetectionOptions());
+        
         // Register Entity Framework DbContext
         services.AddDbContext<WellMonitorDbContext>(options =>
             options.UseSqlite(context.Configuration.GetConnectionString("DefaultConnection") 

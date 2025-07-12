@@ -13,6 +13,7 @@ src/WellMonitor.Device/secrets.json
 # Ignore build outputs
 bin/
 obj/
+publish/
 
 # Ignore user-specific files
 *.user
