@@ -19,7 +19,7 @@ fi
 SERVICE_NAME="wellmonitor"
 USER_NAME=$(whoami)
 WORK_DIR="/home/$USER_NAME/WellMonitor/src/WellMonitor.Device"
-EXEC_PATH="/home/$USER_NAME/WellMonitor/src/WellMonitor.Device/bin/Release/net8.0/WellMonitor.Device"
+EXEC_PATH="/home/$USER_NAME/WellMonitor/src/WellMonitor.Device/bin/Release/net8.0/linux-arm64/WellMonitor.Device"
 
 echo "User: $USER_NAME"
 echo "Working Directory: $WORK_DIR"
@@ -60,11 +60,12 @@ Type=exec
 User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=$WORK_DIR
-ExecStart=$EXEC_PATH
+ExecStart=/usr/bin/dotnet $EXEC_PATH
 Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=WELLMONITOR_SECRETS_MODE=hybrid
+Environment=DOTNET_EnableDiagnostics=0
 
 # Logging
 StandardOutput=journal

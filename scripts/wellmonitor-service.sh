@@ -45,6 +45,16 @@ case "$1" in
         echo
         echo "Debug Images:"
         ls -la ~/WellMonitor/src/WellMonitor.Device/debug_images/ | tail -10
+        echo
+        echo "Executable Check:"
+        EXEC_PATH="~/WellMonitor/src/WellMonitor.Device/bin/Release/net8.0/linux-arm64/WellMonitor.Device"
+        if [ -f "$EXEC_PATH" ]; then
+            echo "✅ Executable found: $EXEC_PATH"
+        else
+            echo "❌ Executable not found: $EXEC_PATH"
+            echo "Available executables:"
+            find ~/WellMonitor/src/WellMonitor.Device/bin -name "WellMonitor.Device*" -type f 2>/dev/null || echo "None found"
+        fi
         ;;
     images)
         echo "📸 Recent debug images:"
