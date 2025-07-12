@@ -15,19 +15,43 @@ This project is a .NET 8 application written in C# for the Raspberry Pi 4B. It m
 - **📱 PowerApp Ready**: Framework prepared for tenant monitoring interface
 - **📊 Enterprise Logging**: Local SQLite with comprehensive audit trails and sync strategy
 
+## Documentation
+
+**📚 [Complete Documentation](docs/README.md)**
+
+### Quick Access
+- **🚀 [Installation Guide](docs/deployment/installation-guide.md)** - Complete setup from development to production
+- **⚙️ [Configuration Guide](docs/configuration/configuration-guide.md)** - Device twin and system configuration
+- **🔧 [Service Management](docs/deployment/service-management.md)** - Service operations and monitoring
+- **🎥 [Camera & OCR Setup](docs/configuration/camera-ocr-setup.md)** - Hardware and image processing optimization
+
+### Documentation Structure
+```
+docs/
+├── README.md                    # Main documentation index
+├── deployment/                  # 📦 Installation and operations
+│   ├── installation-guide.md   # Complete setup process
+│   ├── service-management.md   # Service operations
+│   └── troubleshooting-guide.md # Problem solving
+├── configuration/               # ⚙️ Settings and integration
+│   ├── configuration-guide.md  # Device twin configuration
+│   ├── camera-ocr-setup.md    # Hardware optimization
+│   └── azure-integration.md   # Cloud services setup
+├── development/                 # 🔧 Development environment
+│   ├── development-setup.md    # Local development
+│   ├── testing-guide.md       # Testing procedures
+│   └── architecture-overview.md # System design
+└── reference/                   # 📚 Technical reference
+    ├── api-reference.md        # Commands and endpoints
+    ├── data-models.md          # Database schema
+    └── hardware-specs.md       # Pi and component specs
+```
 
 ## Project Structure
 
-
 ```
 wellmonitor/
-├── docs/                          # Documentation and setup guides
-│   ├── OCR-Monitoring-Integration.md # Complete OCR implementation guide
-│   ├── DataLoggingAndSync.md      # Data logging & sync strategy
-│   ├── DataModel.md               # Data model and schema
-│   ├── DeviceTwinExtendedConfiguration.md # 39-parameter configuration guide
-│   ├── SecretsManagement.md       # Secure secrets management guide
-│   └── RaspberryPiDeploymentGuide.md # Pi deployment instructions
+├── docs/                          # 📚 Organized documentation (12 focused guides)
 ├── src/
 │   ├── WellMonitor.Device/        # Main device app (Raspberry Pi)
 │   │   ├── Services/              # OCR, Camera, GPIO, Database, Monitoring services
@@ -36,9 +60,9 @@ wellmonitor/
 │   ├── WellMonitor.Shared/        # Shared DTOs, models, utilities
 │   └── WellMonitor.AzureFunctions/# Azure Functions for PowerApp integration
 ├── tests/                        # Unit/integration tests
+├── scripts/                      # PowerShell deployment and management scripts
 ├── .github/                      # GitHub workflows and Copilot instructions
-├── README.md
-└── ...
+└── README.md
 ```
 
 ## 🚀 Quick Start
@@ -60,19 +84,28 @@ This provides:
 - ✅ **Auto-Migration**: Safely moves existing database and debug images
 - ✅ **Complete Build**: Includes git pull, build, test, and service setup
 
-See [docs/deployment-guide.md](docs/deployment-guide.md) for detailed deployment instructions.
+**📖 See [Installation Guide](docs/deployment/installation-guide.md) for complete setup instructions.**
 
-### **Development Workflow**
+### **Development Setup**
 
-For ongoing development and testing:
+For local development environment:
 
 ```bash
-# Quick rebuild and reinstall
-./scripts/install-wellmonitor-complete.sh --clean
+# Clone repository
+git clone https://github.com/davebirr/WellMonitor.git
+cd WellMonitor
 
-# Traditional development (runs in home directory)
-./scripts/sync-and-run.sh --clean
+# Build and test
+dotnet restore
+dotnet build
+dotnet test
+
+# Run locally
+cd src/WellMonitor.Device
+dotnet run
 ```
+
+**📖 See [Development Setup](docs/development/development-setup.md) for complete development guide.**
 
 ### **1. OCR Integration Status: ✅ COMPLETE**
 
