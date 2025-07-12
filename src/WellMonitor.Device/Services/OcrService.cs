@@ -44,16 +44,16 @@ public class OcrService : IOcrService
         {
             _logger.LogWarning("No OCR providers are available - OCR service will operate in limited mode");
             // Use any provider from the list (including NullOcrProvider which should always be available)
-            _primaryProvider = providerList.FirstOrDefault(p => p.Name == "Null") ?? providerList.FirstOrDefault();
+            _primaryProvider = providerList.FirstOrDefault(p => p.Name == "Null") ?? providerList.FirstOrDefault()!;
             _fallbackProvider = null;
         }
         else
         {
             _primaryProvider = availableProviders.FirstOrDefault(p => p.Name == _options.Provider) 
                 ?? availableProviders.FirstOrDefault() 
-                ?? providerList.FirstOrDefault();
+                ?? providerList.FirstOrDefault()!;
 
-            _fallbackProvider = availableProviders.FirstOrDefault(p => p.Name != _primaryProvider?.Name);
+            _fallbackProvider = availableProviders.FirstOrDefault(p => p.Name != _primaryProvider.Name);
         }
 
         if (_primaryProvider == null)
