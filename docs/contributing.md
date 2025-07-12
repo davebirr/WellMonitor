@@ -2,6 +2,21 @@
 
 Welcome! This guide will help you set up your environment for contributing to the WellMonitor project. Please follow the steps below to ensure a smooth development experience.
 
+## 🚀 Quick Start for Raspberry Pi Deployment
+
+**For production deployment to Raspberry Pi, use the automated secure installer:**
+
+```bash
+cd ~/WellMonitor
+git pull
+chmod +x scripts/install-wellmonitor-complete.sh
+./scripts/install-wellmonitor-complete.sh --clean
+```
+
+This handles the complete build, secure installation, and service setup with LED camera optimization.
+
+See [deployment-guide.md](deployment-guide.md) for detailed deployment instructions.
+
 ---
 
 ## 1. Required Tools

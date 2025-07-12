@@ -1,8 +1,21 @@
 # Environment Variables Setup for WellMonitor Service
 
+⚠️ **DEPRECATED**: This document describes manual environment variable setup. 
+
+**For new installations, use the automated secure installer instead:**
+```bash
+./scripts/install-wellmonitor-complete.sh --clean
+```
+
+This automatically handles all environment variables, builds the application, and installs it securely to system directories with full systemd protection.
+
+---
+
+## Manual Environment Variable Setup (Legacy)
+
 The WellMonitor application requires specific environment variables when running as a service. The SIGABRT error is likely due to missing required configuration.
 
-## Required Environment Variables
+### Required Environment Variables
 
 The application expects these environment variables:
 

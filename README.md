@@ -43,6 +43,37 @@ wellmonitor/
 
 ## 🚀 Quick Start
 
+### **Production Deployment (Recommended)**
+
+Deploy to Raspberry Pi with full security and LED camera optimization:
+
+```bash
+cd ~/WellMonitor
+git pull
+chmod +x scripts/install-wellmonitor-complete.sh
+./scripts/install-wellmonitor-complete.sh --clean
+```
+
+This provides:
+- ✅ **Secure Installation**: System directories with full systemd protection
+- ✅ **LED Optimization**: Pre-configured for red 7-segment displays in dark environments  
+- ✅ **Auto-Migration**: Safely moves existing database and debug images
+- ✅ **Complete Build**: Includes git pull, build, test, and service setup
+
+See [docs/deployment-guide.md](docs/deployment-guide.md) for detailed deployment instructions.
+
+### **Development Workflow**
+
+For ongoing development and testing:
+
+```bash
+# Quick rebuild and reinstall
+./scripts/install-wellmonitor-complete.sh --clean
+
+# Traditional development (runs in home directory)
+./scripts/sync-and-run.sh --clean
+```
+
 ### **1. OCR Integration Status: ✅ COMPLETE**
 
 The complete OCR monitoring integration is ready for testing! See [docs/OCR-Monitoring-Integration.md](docs/OCR-Monitoring-Integration.md) for detailed implementation guide.
