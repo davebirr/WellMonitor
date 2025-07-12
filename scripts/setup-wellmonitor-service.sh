@@ -60,7 +60,7 @@ Type=exec
 User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=$WORK_DIR
-ExecStart=/usr/bin/dotnet $EXEC_PATH
+ExecStart=$EXEC_PATH
 Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
