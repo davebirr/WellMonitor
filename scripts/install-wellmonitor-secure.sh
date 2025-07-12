@@ -2,6 +2,18 @@
 
 echo "=== Installing WellMonitor to System Directory (Secure Approach) ==="
 
+# Stop and disable existing service first
+echo "Stopping existing wellmonitor service..."
+sudo systemctl stop wellmonitor 2>/dev/null || echo "Service not running"
+sudo systemctl disable wellmonitor 2>/dev/null || echo "Service not enabled"
+
+# Backup existing service file
+if [ -f /etc/systemd/system/wellmonitor.service ]; then
+    echo "Backing up existing service file..."
+    sudo cp /etc/systemd/system/wellmonitor.service /etc/systemd/system/wellmonitor.service.backup
+    echo "Backup saved to: /etc/systemd/system/wellmonitor.service.backup"
+fi
+
 # Create system directories
 sudo mkdir -p /opt/wellmonitor
 sudo mkdir -p /var/lib/wellmonitor
