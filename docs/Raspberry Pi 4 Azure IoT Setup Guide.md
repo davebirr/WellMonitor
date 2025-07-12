@@ -202,7 +202,49 @@ sudo raspi-config
 
    ---
 
-   ## 5. Register Device in Azure IoT Hub
+   ## 5. Install Azure CLI
+
+   The Azure CLI is essential for managing Azure IoT Hub device twins, monitoring telemetry, and running automated deployment scripts:
+
+   ```bash
+   # Install Azure CLI for Debian/Ubuntu on ARM64
+   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+   
+   # Verify installation
+   az --version
+   
+   # Login to Azure (requires device code authentication)
+   az login --use-device-code
+   
+   # Set default subscription (if you have multiple)
+   az account set --subscription "Your Subscription Name"
+   
+   # Verify IoT Hub access
+   az iot hub list --query "[].name" -o table
+   ```
+
+   **Benefits of Azure CLI on Pi:**
+   - **Device Twin Management**: Update configuration remotely using scripts
+   - **Telemetry Monitoring**: View real-time device messages 
+   - **Automated Deployment**: Use deployment scripts for updates
+   - **Troubleshooting**: Query device status and logs
+   - **Development**: Test device twin changes before applying
+
+   **WellMonitor Specific Usage:**
+   ```bash
+   # Update debug image path configuration
+   ./scripts/update-debug-image-path.sh
+   
+   # Update OCR provider settings
+   ./scripts/Update-DeviceTwinOCR.ps1  # (PowerShell script)
+   
+   # Monitor device telemetry
+   az iot hub monitor-events --hub-name YourIoTHub --device-id YourDeviceId
+   ```
+
+   ---
+
+   ## 6. Register Device in Azure IoT Hub
    In Azure Portal:
    Go to your IoT Hub.
    Click IoT Devices > + New.
@@ -211,7 +253,7 @@ sudo raspi-config
 
    ---
 
-   ## 6. Create and Run Your Python Script
+   ## 7. Create and Run Your Python Script
    1. **Create a script (e.g., send_message.py):**
 
    ```
@@ -236,12 +278,12 @@ sudo raspi-config
 
    ---
 
-   ## 7. Monitor Device in Azure
+   ## 8. Monitor Device in Azure
    Use Azure IoT Explorer or the Azure Portal to view messages and device status.
 
    ---
    
-   ## 8. (Optional) Set Up Remote Desktop
+   ## 9. (Optional) Set Up Remote Desktop
    ```
    sudo apt install xrdp
    ```
@@ -316,3 +358,85 @@ Log into Azure IoT Hub and verify your device twin desired properties include:
 - Device twin validation warnings are resolved ✅
 
 ---
+
+## 11. WellMonitor Specific Setup
+
+### Script Permissions Fix
+After cloning the WellMonitor repository, you may encounter "Permission denied" errors when running shell scripts. This is due to git on Windows not preserving Unix executable permissions:
+
+```bash
+# Quick fix - run after any git pull that gives permission denied errors
+./scripts/fix-script-permissions.sh
+
+# If that script itself isn't executable, use:
+chmod +x scripts/*.sh
+./scripts/fix-script-permissions.sh
+
+# Set up automatic permission fixing (recommended)
+./scripts/setup-git-hooks.sh
+```
+
+### WellMonitor Azure CLI Usage
+With Azure CLI installed, you can now use the automated configuration scripts:
+
+```bash
+# Diagnose debug image path issues
+./scripts/diagnose-debug-image-path.sh
+
+# Fix debug image path configuration (requires Azure CLI)
+./scripts/update-debug-image-path.sh
+
+# Deploy and run WellMonitor
+./scripts/deploy-to-pi.sh
+
+# Test OCR functionality
+./scripts/test-ocr.sh
+```
+
+### Device Twin Configuration
+Update device twin settings for optimal Pi performance:
+
+```bash
+# Set OCR provider to Python (recommended for Pi)
+az iot hub device-twin update \
+    --hub-name YourIoTHub \
+    --device-id YourDeviceId \
+    --set properties.desired.ocrProvider="Python"
+
+# Enable debug image saving
+az iot hub device-twin update \
+    --hub-name YourIoTHub \
+    --device-id YourDeviceId \
+    --set properties.desired.debugImageSaveEnabled=true \
+    --set properties.desired.cameraDebugImagePath="/home/davidb/WellMonitor/src/WellMonitor.Device/debug_images"
+```
+
+### Monitor WellMonitor Telemetry
+```bash
+# Monitor real-time telemetry from your device
+az iot hub monitor-events --hub-name YourIoTHub --device-id YourDeviceId
+
+# View device twin current configuration
+az iot hub device-twin show --hub-name YourIoTHub --device-id YourDeviceId
+```
+
+### Common WellMonitor Issues
+
+**Script Permission Denied:**
+- Run: `./scripts/fix-script-permissions.sh`
+- Or manually: `chmod +x scripts/*.sh`
+
+**Debug Images Not Saving:**
+- Check device twin: `debugImageSaveEnabled: true`
+- Verify path: `cameraDebugImagePath` is set correctly
+- Run diagnostic: `./scripts/diagnose-debug-image-path.sh`
+
+**OCR Not Working:**
+- Ensure Python virtual environment is active: `source ~/iotenv/bin/activate`
+- Test OCR dependencies: `python3 -c "import pytesseract; print('OK')"`
+- Set device twin: `ocrProvider: "Python"` (recommended for Pi)
+
+**Service Not Starting:**
+- Check logs: `sudo journalctl -u wellmonitor -f`
+- Verify .NET installation: `dotnet --info`
+- Check GPIO permissions: `sudo usermod -a -G gpio $USER`
