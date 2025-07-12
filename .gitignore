@@ -33,6 +33,9 @@ venv/
 *.log
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
+*.db-journal
 
 # Ignore debug images but keep the directory structure
 debug_images/*.jpg
