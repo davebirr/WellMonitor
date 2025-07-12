@@ -128,29 +128,57 @@ else
     print_status $YELLOW "⚠️  Debug images directory missing: $DEBUG_DIR"
 fi
 
-print_section "5. Configuration Files"
+print_section "5. Configuration"
+# Check for environment variables (preferred) or secrets file (legacy)
 SECRETS_FILE="$APP_DIR/secrets.json"
-if [[ -f "$SECRETS_FILE" ]]; then
-    print_status $GREEN "✅ Secrets file exists: $SECRETS_FILE"
+
+# First check for environment variables (check both possible names)
+if [[ -n "$WELLMONITOR_IOTHUB_CONNECTION_STRING" ]]; then
+    print_status $GREEN "✅ Azure IoT connection string found: WELLMONITOR_IOTHUB_CONNECTION_STRING"
+    # Check if it looks like a valid Azure IoT connection string
+    if [[ "$WELLMONITOR_IOTHUB_CONNECTION_STRING" == *"HostName="*"azure-devices.net"* ]]; then
+        print_status $GREEN "✅ Environment variable contains valid Azure IoT Hub hostname"
+    else
+        print_status $YELLOW "⚠️  Environment variable doesn't look like Azure IoT connection string"
+    fi
+    
+    # Check secrets mode
+    if [[ "$WELLMONITOR_SECRETS_MODE" == "environment" ]]; then
+        print_status $GREEN "✅ Secrets mode set to environment variables"
+    else
+        print_status $YELLOW "⚠️  WELLMONITOR_SECRETS_MODE not set to 'environment'"
+    fi
+elif [[ -n "$AZURE_IOT_DEVICE_CONNECTION_STRING" ]]; then
+    print_status $GREEN "✅ Azure IoT connection string found: AZURE_IOT_DEVICE_CONNECTION_STRING"
+    # Check if it looks like a valid Azure IoT connection string
+    if [[ "$AZURE_IOT_DEVICE_CONNECTION_STRING" == *"HostName="*"azure-devices.net"* ]]; then
+        print_status $GREEN "✅ Environment variable contains valid Azure IoT Hub hostname"
+    else
+        print_status $YELLOW "⚠️  Environment variable doesn't look like Azure IoT connection string"
+    fi
+elif [[ -f "$SECRETS_FILE" ]]; then
+    print_status $YELLOW "⚠️  Using legacy secrets.json file: $SECRETS_FILE"
     echo "   • Owner: $(stat -c '%U:%G' $SECRETS_FILE)"
     echo "   • Permissions: $(stat -c '%a' $SECRETS_FILE)"
+    print_status $BLUE "💡 Consider migrating to environment variable: AZURE_IOT_DEVICE_CONNECTION_STRING"
     
     # Check if file contains Azure IoT connection string (without revealing it)
     if grep -q "DeviceConnectionString" "$SECRETS_FILE" 2>/dev/null; then
-        print_status $GREEN "✅ Device connection string found"
+        print_status $GREEN "✅ Device connection string found in secrets.json"
     else
-        print_status $RED "❌ Device connection string missing"
-        print_status $YELLOW "💡 Add Azure IoT Hub connection string to secrets.json"
+        print_status $RED "❌ Device connection string missing from secrets.json"
     fi
     
     if grep -q "HostName.*azure-devices.net" "$SECRETS_FILE" 2>/dev/null; then
-        print_status $GREEN "✅ Azure IoT Hub hostname found"
+        print_status $GREEN "✅ Azure IoT Hub hostname found in secrets.json"
     else
-        print_status $YELLOW "⚠️  Azure IoT Hub hostname not detected"
+        print_status $YELLOW "⚠️  Azure IoT Hub hostname not detected in secrets.json"
     fi
 else
-    print_status $RED "❌ Secrets file missing: $SECRETS_FILE"
-    print_status $YELLOW "💡 Create secrets.json with Azure IoT connection string"
+    print_status $RED "❌ No Azure IoT configuration found"
+    print_status $YELLOW "💡 Set environment variable: WELLMONITOR_IOTHUB_CONNECTION_STRING"
+    print_status $YELLOW "   And: WELLMONITOR_SECRETS_MODE=environment"
+    print_status $YELLOW "   Or create secrets.json with Azure IoT connection string"
 fi
 
 print_section "6. Recent Service Logs"
@@ -235,9 +263,12 @@ if ! ping -c 1 azure.microsoft.com &> /dev/null; then
     echo "   → Verify DNS resolution"
 fi
 
-if [[ ! -f "$SECRETS_FILE" ]] || ! grep -q "DeviceConnectionString" "$SECRETS_FILE" 2>/dev/null; then
+if [[ -z "$WELLMONITOR_IOTHUB_CONNECTION_STRING" ]] && [[ -z "$AZURE_IOT_DEVICE_CONNECTION_STRING" ]] && ([[ ! -f "$SECRETS_FILE" ]] || ! grep -q "DeviceConnectionString" "$SECRETS_FILE" 2>/dev/null); then
     print_status $RED "🔧 CRITICAL: Missing Azure IoT configuration"
-    echo "   → Create/update secrets.json with connection string"
+    echo "   → Set environment variable: export WELLMONITOR_IOTHUB_CONNECTION_STRING='HostName=...'"
+    echo "   → Set: export WELLMONITOR_SECRETS_MODE=environment"
+    echo "   → Add to systemd service file or /etc/environment"
+    echo "   → Or create/update secrets.json with connection string (legacy)"
 fi
 
 if [[ ! -d "$DEBUG_DIR" ]]; then

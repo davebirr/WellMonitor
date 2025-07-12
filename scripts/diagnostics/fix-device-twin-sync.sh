@@ -50,23 +50,53 @@ else
     exit 1
 fi
 
-print_section "3. Verifying Configuration Files"
+print_section "3. Verifying Configuration"
 APP_DIR="/opt/wellmonitor"
 SECRETS_FILE="$APP_DIR/secrets.json"
 
-if [[ ! -f "$SECRETS_FILE" ]]; then
-    print_status $RED "❌ Secrets file missing: $SECRETS_FILE"
-    print_status $YELLOW "💡 Create secrets.json with Azure IoT connection string"
+# Check for environment variable (preferred) or secrets file (legacy)
+if [[ -n "$WELLMONITOR_IOTHUB_CONNECTION_STRING" ]]; then
+    print_status $GREEN "✅ Azure IoT connection string found: WELLMONITOR_IOTHUB_CONNECTION_STRING"
+    
+    if [[ "$WELLMONITOR_IOTHUB_CONNECTION_STRING" == *"HostName="*"azure-devices.net"* ]]; then
+        print_status $GREEN "✅ Environment variable contains valid Azure IoT Hub hostname"
+    else
+        print_status $RED "❌ Environment variable doesn't look like Azure IoT connection string"
+        print_status $YELLOW "💡 Verify WELLMONITOR_IOTHUB_CONNECTION_STRING format"
+        exit 1
+    fi
+    
+    if [[ "$WELLMONITOR_SECRETS_MODE" == "environment" ]]; then
+        print_status $GREEN "✅ Secrets mode set to environment"
+    else
+        print_status $YELLOW "⚠️  WELLMONITOR_SECRETS_MODE should be 'environment'"
+    fi
+elif [[ -n "$AZURE_IOT_DEVICE_CONNECTION_STRING" ]]; then
+    print_status $GREEN "✅ Azure IoT connection string found: AZURE_IOT_DEVICE_CONNECTION_STRING"
+    
+    if [[ "$AZURE_IOT_DEVICE_CONNECTION_STRING" == *"HostName="*"azure-devices.net"* ]]; then
+        print_status $GREEN "✅ Environment variable contains valid Azure IoT Hub hostname"
+    else
+        print_status $RED "❌ Environment variable doesn't look like Azure IoT connection string"
+        print_status $YELLOW "💡 Verify AZURE_IOT_DEVICE_CONNECTION_STRING format"
+        exit 1
+    fi
+elif [[ -f "$SECRETS_FILE" ]]; then
+    print_status $YELLOW "⚠️  Using legacy secrets.json file"
+    
+    if ! grep -q "DeviceConnectionString" "$SECRETS_FILE" 2>/dev/null; then
+        print_status $RED "❌ Device connection string missing from secrets.json"
+        print_status $YELLOW "💡 Add Azure IoT Hub connection string to secrets.json"
+        exit 1
+    fi
+    print_status $GREEN "✅ Legacy configuration file present"
+else
+    print_status $RED "❌ No Azure IoT configuration found"
+    print_status $YELLOW "💡 Set environment variable: WELLMONITOR_IOTHUB_CONNECTION_STRING"
+    print_status $YELLOW "   And: WELLMONITOR_SECRETS_MODE=environment"
+    print_status $YELLOW "   Or create secrets.json with connection string"
     exit 1
 fi
-
-if ! grep -q "DeviceConnectionString" "$SECRETS_FILE" 2>/dev/null; then
-    print_status $RED "❌ Device connection string missing from secrets.json"
-    print_status $YELLOW "💡 Add Azure IoT Hub connection string to secrets.json"
-    exit 1
-fi
-
-print_status $GREEN "✅ Configuration files present"
 
 print_section "4. Setting Up Debug Images Directory"
 DATA_DIR="/var/lib/wellmonitor"

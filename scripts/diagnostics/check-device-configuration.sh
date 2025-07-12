@@ -29,7 +29,38 @@ print_section() {
     echo "----------------------------------------"
 }
 
-print_section "1. Current Service Configuration"
+print_section "1. Azure IoT Configuration Method"
+
+# Check which configuration method is being used
+if [[ -n "$WELLMONITOR_IOTHUB_CONNECTION_STRING" ]]; then
+    print_status $GREEN "✅ Using environment variable: WELLMONITOR_IOTHUB_CONNECTION_STRING"
+    if [[ "$WELLMONITOR_IOTHUB_CONNECTION_STRING" == *"HostName="*"azure-devices.net"* ]]; then
+        print_status $GREEN "✅ Environment variable contains valid Azure IoT Hub hostname"
+    else
+        print_status $YELLOW "⚠️  Environment variable format may be incorrect"
+    fi
+    
+    if [[ "$WELLMONITOR_SECRETS_MODE" == "environment" ]]; then
+        print_status $GREEN "✅ Secrets mode: environment"
+    else
+        print_status $YELLOW "⚠️  WELLMONITOR_SECRETS_MODE not set to 'environment'"
+    fi
+elif [[ -n "$AZURE_IOT_DEVICE_CONNECTION_STRING" ]]; then
+    print_status $GREEN "✅ Using environment variable: AZURE_IOT_DEVICE_CONNECTION_STRING"
+    if [[ "$AZURE_IOT_DEVICE_CONNECTION_STRING" == *"HostName="*"azure-devices.net"* ]]; then
+        print_status $GREEN "✅ Environment variable contains valid Azure IoT Hub hostname"
+    else
+        print_status $YELLOW "⚠️  Environment variable format may be incorrect"
+    fi
+elif [[ -f "/opt/wellmonitor/secrets.json" ]]; then
+    print_status $YELLOW "⚠️  Using legacy secrets.json file"
+    print_status $BLUE "💡 Consider migrating to environment variable for better security"
+else
+    print_status $RED "❌ No Azure IoT configuration found"
+    print_status $YELLOW "💡 This explains why device twin sync isn't working"
+fi
+
+print_section "2. Current Service Configuration"
 
 # Look for configuration loading in logs
 CONFIG_LOGS=$(journalctl -u wellmonitor --since "1 hour ago" --no-pager 2>/dev/null | grep -i "configuration\|device.*twin\|setting" | tail -10)
@@ -42,7 +73,7 @@ else
     print_status $YELLOW "⚠️  No configuration logs found in the last hour"
 fi
 
-print_section "2. Camera Settings Detection"
+print_section "3. Camera Settings Detection"
 
 # Extract camera settings from recent logs
 print_status $BLUE "🔍 Extracting camera settings from logs..."
@@ -69,7 +100,7 @@ else
     print_status $YELLOW "⚠️  No debug path settings found in logs"
 fi
 
-print_section "3. Azure IoT Connection Status"
+print_section "4. Azure IoT Connection Status"
 
 # Check for Azure connection logs
 AZURE_LOGS=$(journalctl -u wellmonitor --since "30 minutes ago" --no-pager 2>/dev/null | grep -i "azure\|iot.*hub\|connection" | tail -5)
@@ -91,7 +122,7 @@ else
     print_status $YELLOW "⚠️  No Azure IoT connection logs found"
 fi
 
-print_section "4. Device Twin Sync Status"
+print_section "5. Device Twin Sync Status"
 
 # Look for device twin sync messages
 TWIN_LOGS=$(journalctl -u wellmonitor --since "1 hour ago" --no-pager 2>/dev/null | grep -i "device.*twin\|twin.*update\|desired.*properties" | tail -5)
@@ -111,7 +142,7 @@ else
     print_status $BLUE "💡 This might indicate the device isn't connecting to Azure IoT Hub"
 fi
 
-print_section "5. Debug Images Analysis"
+print_section "6. Debug Images Analysis"
 
 DEBUG_DIR="/var/lib/wellmonitor/debug_images"
 OLD_DEBUG_DIR="/home/davidb/WellMonitor/src/WellMonitor.Device/debug_images"
@@ -158,7 +189,7 @@ if [[ -n "$ACTIVE_DEBUG_LOG" ]]; then
     fi
 fi
 
-print_section "6. OCR Processing Status"
+print_section "7. OCR Processing Status"
 
 OCR_LOGS=$(journalctl -u wellmonitor --since "15 minutes ago" --no-pager 2>/dev/null | grep -i "ocr\|confidence\|tesseract" | tail -5)
 
@@ -176,7 +207,7 @@ else
     print_status $YELLOW "⚠️  No recent OCR logs found"
 fi
 
-print_section "7. Force Configuration Refresh"
+print_section "8. Force Configuration Refresh"
 
 print_status $BLUE "🔄 Available actions to force configuration sync:"
 echo ""
@@ -192,7 +223,7 @@ echo "   • Verify Azure IoT connection string in secrets.json"
 echo "   • Contact Azure IoT Hub administrator to verify device twin"
 echo ""
 
-print_section "8. Quick Status Summary"
+print_section "9. Quick Status Summary"
 
 # Determine overall status
 ISSUES=0
