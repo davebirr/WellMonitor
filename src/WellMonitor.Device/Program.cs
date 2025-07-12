@@ -183,6 +183,9 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     
     // Register OCR testing service
     services.AddSingleton<OcrTestingService>();
+    
+    // Register OCR diagnostics service
+    services.AddSingleton<OcrDiagnosticsService>();
 }
 
 // Simple .env file loader

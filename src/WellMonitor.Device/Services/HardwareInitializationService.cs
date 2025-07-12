@@ -2,6 +2,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using WellMonitor.Device.Services;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,21 +11,27 @@ namespace WellMonitor.Device.Services
 {
     /// <summary>
     /// Hosted service responsible for hardware initialization and validation
-    /// Ensures GPIO and camera hardware are properly initialized before starting monitoring
+    /// Ensures GPIO, camera, and OCR providers are properly initialized before starting monitoring
     /// </summary>
     public class HardwareInitializationService : IHostedService
     {
         private readonly IGpioService _gpioService;
         private readonly ICameraService _cameraService;
+        private readonly IEnumerable<IOcrProvider> _ocrProviders;
+        private readonly OcrDiagnosticsService _ocrDiagnosticsService;
         private readonly ILogger<HardwareInitializationService> _logger;
         
         public HardwareInitializationService(
             IGpioService gpioService,
             ICameraService cameraService,
+            IEnumerable<IOcrProvider> ocrProviders,
+            OcrDiagnosticsService ocrDiagnosticsService,
             ILogger<HardwareInitializationService> logger)
         {
             _gpioService = gpioService;
             _cameraService = cameraService;
+            _ocrProviders = ocrProviders;
+            _ocrDiagnosticsService = ocrDiagnosticsService;
             _logger = logger;
         }
 
@@ -45,6 +53,12 @@ namespace WellMonitor.Device.Services
                 
                 // Initialize camera hardware
                 await InitializeCameraAsync(cancellationToken);
+                
+                // Run OCR diagnostics first
+                await _ocrDiagnosticsService.RunDiagnosticsAsync();
+                
+                // Initialize OCR providers
+                await InitializeOcrProvidersAsync(cancellationToken);
                 
                 _logger.LogInformation("Hardware initialization completed successfully");
             }
@@ -107,6 +121,62 @@ namespace WellMonitor.Device.Services
             {
                 _logger.LogError(ex, "Failed to initialize camera hardware");
                 throw new InvalidOperationException("Camera hardware initialization failed", ex);
+            }
+        }
+
+        private async Task InitializeOcrProvidersAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                _logger.LogInformation("Initializing OCR providers...");
+                
+                var initializationTasks = _ocrProviders.Select(async provider =>
+                {
+                    try
+                    {
+                        _logger.LogInformation("Initializing {ProviderName} OCR provider...", provider.Name);
+                        var success = await provider.InitializeAsync(cancellationToken);
+                        
+                        if (success)
+                        {
+                            _logger.LogInformation("{ProviderName} OCR provider initialized successfully", provider.Name);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("{ProviderName} OCR provider failed to initialize", provider.Name);
+                        }
+                        
+                        return (Provider: provider.Name, Success: success);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Exception initializing {ProviderName} OCR provider", provider.Name);
+                        return (Provider: provider.Name, Success: false);
+                    }
+                });
+
+                var results = await Task.WhenAll(initializationTasks);
+                var successfulProviders = results.Where(r => r.Success).ToList();
+                var failedProviders = results.Where(r => !r.Success).ToList();
+
+                _logger.LogInformation("OCR provider initialization completed: {Successful} successful, {Failed} failed", 
+                    successfulProviders.Count, failedProviders.Count);
+
+                if (successfulProviders.Count == 0)
+                {
+                    throw new InvalidOperationException("No OCR providers were successfully initialized");
+                }
+
+                if (failedProviders.Count > 0)
+                {
+                    _logger.LogWarning("Failed OCR providers: {FailedProviders}", 
+                        string.Join(", ", failedProviders.Select(f => f.Provider)));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize OCR providers");
+                throw new InvalidOperationException("OCR provider initialization failed", ex);
             }
         }
 
