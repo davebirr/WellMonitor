@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using WellMonitor.Device.Models;
 using System.Diagnostics;
 using System.Text.Json;
@@ -11,17 +12,17 @@ namespace WellMonitor.Device.Services;
 public class PythonOcrProvider : IOcrProvider
 {
     private readonly ILogger<PythonOcrProvider> _logger;
-    private readonly OcrOptions _ocrOptions;
+    private readonly IOptionsMonitor<OcrOptions> _ocrOptionsMonitor;
     private bool _isInitialized = false;
     private string? _pythonScriptPath;
 
     public string Name => "Python";
     public bool IsAvailable => _isInitialized;
 
-    public PythonOcrProvider(ILogger<PythonOcrProvider> logger, OcrOptions ocrOptions)
+    public PythonOcrProvider(ILogger<PythonOcrProvider> logger, IOptionsMonitor<OcrOptions> ocrOptionsMonitor)
     {
         _logger = logger;
-        _ocrOptions = ocrOptions;
+        _ocrOptionsMonitor = ocrOptionsMonitor;
     }
 
     public async Task<bool> InitializeAsync(CancellationToken cancellationToken = default)
@@ -146,12 +147,13 @@ public class PythonOcrProvider : IOcrProvider
 
     private async Task CreatePythonOcrScript(string scriptPath)
     {
-        var enablePreprocessing = _ocrOptions.EnablePreprocessing.ToString().ToLower();
-        var scaleFactor = _ocrOptions.ImagePreprocessing.ScaleFactor.ToString("F1");
-        var engineMode = _ocrOptions.Tesseract.EngineMode.ToString();
-        var psmMode = _ocrOptions.Tesseract.PageSegmentationMode.ToString();
-        var charWhitelist = _ocrOptions.Tesseract.CustomConfig.GetValueOrDefault("tessedit_char_whitelist", "");
-        var language = _ocrOptions.Tesseract.Language;
+        var ocrOptions = _ocrOptionsMonitor.CurrentValue;
+        var enablePreprocessing = ocrOptions.EnablePreprocessing.ToString().ToLower();
+        var scaleFactor = ocrOptions.ImagePreprocessing.ScaleFactor.ToString("F1");
+        var engineMode = ocrOptions.Tesseract.EngineMode.ToString();
+        var psmMode = ocrOptions.Tesseract.PageSegmentationMode.ToString();
+        var charWhitelist = ocrOptions.Tesseract.CustomConfig.GetValueOrDefault("tessedit_char_whitelist", "");
+        var language = ocrOptions.Tesseract.Language;
 
         var pythonScript = @"#!/usr/bin/env python3
 """"""
@@ -370,6 +372,7 @@ if __name__ == ""__main__"":
     private async Task<PythonOcrScriptResult> RunPythonOcrScript(string imagePath, string outputPath, CancellationToken cancellationToken)
     {
         var startTime = DateTime.UtcNow;
+        var ocrOptions = _ocrOptionsMonitor.CurrentValue;
         
         try
         {
@@ -389,7 +392,7 @@ if __name__ == ""__main__"":
             process.Start();
             
             // Simple timeout handling
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_ocrOptions.TimeoutSeconds), cancellationToken);
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(ocrOptions.TimeoutSeconds), cancellationToken);
             var processTask = process.WaitForExitAsync(cancellationToken);
             
             var completedTask = await Task.WhenAny(processTask, timeoutTask);
@@ -400,7 +403,7 @@ if __name__ == ""__main__"":
                 return new PythonOcrScriptResult
                 {
                     IsSuccess = false,
-                    Error = $"OCR script timed out after {_ocrOptions.TimeoutSeconds} seconds",
+                    Error = $"OCR script timed out after {ocrOptions.TimeoutSeconds} seconds",
                     ProcessingTimeMs = (int)(DateTime.UtcNow - startTime).TotalMilliseconds
                 };
             }
