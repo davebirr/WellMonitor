@@ -114,13 +114,31 @@ OLD_DEBUG_DIR="/home/davidb/WellMonitor/src/WellMonitor.Device/debug_images"
 if [[ ! -d "$DEBUG_DIR" ]]; then
     print_status $BLUE "📁 Creating debug images directory..."
     mkdir -p "$DEBUG_DIR"
-    chown wellmonitor:wellmonitor "$DEBUG_DIR"
+    
+    # Determine the correct user/group for the service
+    SERVICE_USER="root"
+    SERVICE_GROUP="root"
+    
+    # Check if service has a specific user configured
+    if [[ -f "/etc/systemd/system/wellmonitor.service" ]]; then
+        CONFIG_USER=$(grep -i "^User=" /etc/systemd/system/wellmonitor.service | cut -d'=' -f2 2>/dev/null)
+        CONFIG_GROUP=$(grep -i "^Group=" /etc/systemd/system/wellmonitor.service | cut -d'=' -f2 2>/dev/null)
+        
+        if [[ -n "$CONFIG_USER" ]]; then
+            SERVICE_USER="$CONFIG_USER"
+        fi
+        if [[ -n "$CONFIG_GROUP" ]]; then
+            SERVICE_GROUP="$CONFIG_GROUP"
+        fi
+    fi
+    
+    chown $SERVICE_USER:$SERVICE_GROUP "$DEBUG_DIR" 2>/dev/null || chown davidb:davidb "$DEBUG_DIR"
     chmod 755 "$DEBUG_DIR"
     print_status $GREEN "✅ Debug directory created: $DEBUG_DIR"
 else
     print_status $GREEN "✅ Debug directory exists: $DEBUG_DIR"
     # Fix permissions if needed
-    chown wellmonitor:wellmonitor "$DEBUG_DIR"
+    chown davidb:davidb "$DEBUG_DIR" 2>/dev/null || true
     chmod 755 "$DEBUG_DIR"
 fi
 
