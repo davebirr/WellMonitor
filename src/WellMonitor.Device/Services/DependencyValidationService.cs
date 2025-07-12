@@ -151,6 +151,26 @@ namespace WellMonitor.Device.Services
                     gpioOptions, 
                     cameraOptions, 
                     _logger);
+
+                // Load OCR configuration from device twin
+                try
+                {
+                    var ocrOptions = await deviceTwinService.FetchAndApplyOcrConfigAsync(
+                        deviceClient,
+                        configuration,
+                        _logger);
+                    
+                    // Apply OCR configuration to runtime configuration service
+                    var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
+                    await runtimeConfigService.UpdateOcrOptionsAsync(ocrOptions);
+                    
+                    _logger.LogInformation("OCR configuration loaded and applied from device twin: Provider={Provider}, Confidence={Confidence}", 
+                        ocrOptions.Provider, ocrOptions.MinimumConfidence);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load OCR configuration from device twin, using defaults");
+                }
                 
                 _logger.LogInformation("Device twin configuration loaded successfully");
                 

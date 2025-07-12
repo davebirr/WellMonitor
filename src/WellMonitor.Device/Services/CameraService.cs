@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,11 +16,13 @@ namespace WellMonitor.Device.Services
     {
         private readonly ILogger<CameraService> _logger;
         private readonly CameraOptions _cameraOptions;
+        private readonly IOptionsMonitor<DebugOptions> _debugOptions;
 
-        public CameraService(ILogger<CameraService> logger, CameraOptions cameraOptions)
+        public CameraService(ILogger<CameraService> logger, CameraOptions cameraOptions, IOptionsMonitor<DebugOptions> debugOptions)
         {
             _logger = logger;
             _cameraOptions = cameraOptions;
+            _debugOptions = debugOptions;
         }
 
         /// <summary>
@@ -100,10 +103,23 @@ namespace WellMonitor.Device.Services
 
                     _logger.LogInformation("Successfully captured image: {Size} bytes", imageBytes.Length);
 
-                    // Save debug copy if configured
-                    if (!string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                    // Save debug copy if both debug mode is enabled AND debug path is configured
+                    var debugOptions = _debugOptions.CurrentValue;
+                    _logger.LogDebug("Debug image check: ImageSaveEnabled={Enabled}, DebugImagePath='{Path}'", 
+                        debugOptions.ImageSaveEnabled, _cameraOptions.DebugImagePath ?? "NULL");
+                    
+                    if (debugOptions.ImageSaveEnabled && !string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
                     {
+                        _logger.LogDebug("Saving debug image...");
                         await SaveDebugImageAsync(imageBytes);
+                    }
+                    else if (debugOptions.ImageSaveEnabled && string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                    {
+                        _logger.LogWarning("Debug image saving is enabled but cameraDebugImagePath is not configured in device twin");
+                    }
+                    else if (!debugOptions.ImageSaveEnabled)
+                    {
+                        _logger.LogDebug("Debug image saving is disabled (debugImageSaveEnabled=false)");
                     }
 
                     return imageBytes;

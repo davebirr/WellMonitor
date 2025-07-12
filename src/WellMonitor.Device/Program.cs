@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Devices.Shared;
 using Microsoft.EntityFrameworkCore;
@@ -165,7 +166,14 @@ static void RegisterSecretsService(IServiceCollection services, IConfiguration c
 // Helper method to register OCR services
 static void RegisterOcrServices(IServiceCollection services, IConfiguration configuration)
 {
-    // Configure OCR options from configuration
+    // Register runtime configuration source for OCR options
+    services.AddSingleton<RuntimeOcrOptionsSource>();
+    services.AddSingleton<IRuntimeConfigurationService, RuntimeConfigurationService>();
+    
+    // Register the runtime options source as the primary IOptionsMonitor<OcrOptions>
+    services.AddSingleton<IOptionsMonitor<OcrOptions>>(provider => provider.GetRequiredService<RuntimeOcrOptionsSource>());
+    
+    // Configure OCR options from configuration as fallback
     services.Configure<OcrOptions>(configuration.GetSection("OCR"));
     
     // Register OCR providers
