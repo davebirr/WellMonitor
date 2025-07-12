@@ -171,6 +171,7 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     // Register OCR providers
     services.AddSingleton<IOcrProvider, TesseractOcrProvider>();
     services.AddSingleton<IOcrProvider, AzureCognitiveServicesOcrProvider>();
+    services.AddSingleton<IOcrProvider, PythonOcrProvider>();
     services.AddSingleton<IOcrProvider, NullOcrProvider>();
     
     // Register main OCR service
