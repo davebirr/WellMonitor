@@ -43,17 +43,22 @@ public class OcrService : IOcrService
         if (availableProviders.Count == 0)
         {
             _logger.LogWarning("No OCR providers are available - OCR service will operate in limited mode");
-            _primaryProvider = providerList.FirstOrDefault() ?? new NullOcrProvider(_logger);
+            // Use any provider from the list (including NullOcrProvider which should always be available)
+            _primaryProvider = providerList.FirstOrDefault(p => p.Name == "Null") ?? providerList.FirstOrDefault();
             _fallbackProvider = null;
         }
         else
         {
             _primaryProvider = availableProviders.FirstOrDefault(p => p.Name == _options.Provider) 
                 ?? availableProviders.FirstOrDefault() 
-                ?? providerList.FirstOrDefault()
-                ?? new NullOcrProvider(_logger);
+                ?? providerList.FirstOrDefault();
 
-            _fallbackProvider = availableProviders.FirstOrDefault(p => p.Name != _primaryProvider.Name);
+            _fallbackProvider = availableProviders.FirstOrDefault(p => p.Name != _primaryProvider?.Name);
+        }
+
+        if (_primaryProvider == null)
+        {
+            throw new InvalidOperationException("No OCR providers available, including fallback providers");
         }
 
         _logger.LogInformation("OCR Service initialized with primary provider: {Provider}", _primaryProvider.Name);

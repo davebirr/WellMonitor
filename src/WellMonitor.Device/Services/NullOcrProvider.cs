@@ -9,13 +9,13 @@ namespace WellMonitor.Device.Services;
 /// </summary>
 public class NullOcrProvider : IOcrProvider, IDisposable
 {
-    private readonly ILogger _logger;
+    private readonly ILogger<NullOcrProvider> _logger;
 
     public string Name => "Null";
 
     public bool IsAvailable => true; // Always available as a fallback
 
-    public NullOcrProvider(ILogger logger)
+    public NullOcrProvider(ILogger<NullOcrProvider> logger)
     {
         _logger = logger;
     }
