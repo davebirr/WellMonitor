@@ -169,7 +169,18 @@ static void RegisterSecretsService(IServiceCollection services, IConfiguration c
 static void RegisterDebugOptions(IServiceCollection services, IConfiguration configuration)
 {
     // Register runtime configuration source for Debug options
-    services.AddSingleton<RuntimeDebugOptionsSource>();
+    services.AddSingleton<RuntimeDebugOptionsSource>(provider =>
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeDebugOptionsSource>>();
+        var source = new RuntimeDebugOptionsSource(logger);
+        
+        // Initialize with values from configuration
+        var initialOptions = new DebugOptions();
+        configuration.GetSection("Debug").Bind(initialOptions);
+        source.UpdateOptions(initialOptions);
+        
+        return source;
+    });
     
     // Register the runtime options source as the primary IOptionsMonitor<DebugOptions>
     services.AddSingleton<IOptionsMonitor<DebugOptions>>(provider => provider.GetRequiredService<RuntimeDebugOptionsSource>());
@@ -185,7 +196,18 @@ static void RegisterDebugOptions(IServiceCollection services, IConfiguration con
 static void RegisterOcrServices(IServiceCollection services, IConfiguration configuration)
 {
     // Register runtime configuration source for OCR options
-    services.AddSingleton<RuntimeOcrOptionsSource>();
+    services.AddSingleton<RuntimeOcrOptionsSource>(provider =>
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeOcrOptionsSource>>();
+        var source = new RuntimeOcrOptionsSource(logger);
+        
+        // Initialize with values from configuration
+        var initialOptions = new OcrOptions();
+        configuration.GetSection("OCR").Bind(initialOptions);
+        source.UpdateOptions(initialOptions);
+        
+        return source;
+    });
     
     // Register the runtime options source as the primary IOptionsMonitor<OcrOptions>
     services.AddSingleton<IOptionsMonitor<OcrOptions>>(provider => provider.GetRequiredService<RuntimeOcrOptionsSource>());
