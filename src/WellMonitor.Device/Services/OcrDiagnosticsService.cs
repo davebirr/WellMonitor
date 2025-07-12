@@ -94,6 +94,7 @@ public class OcrDiagnosticsService
             {
                 Path.Combine(AppContext.BaseDirectory, "tessdata"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "tesseract", "tessdata"),
+                "/usr/share/tesseract-ocr/5/tessdata",
                 "/usr/share/tesseract-ocr/4.00/tessdata",
                 "/usr/share/tesseract-ocr/tessdata",
                 "/usr/share/tessdata",

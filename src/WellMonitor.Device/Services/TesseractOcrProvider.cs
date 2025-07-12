@@ -192,8 +192,10 @@ public class TesseractOcrProvider : IOcrProvider, IDisposable
         {
             Path.Combine(AppContext.BaseDirectory, "tessdata"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "tesseract", "tessdata"),
-            "/usr/share/tesseract-ocr/4.00/tessdata", // Linux
+            "/usr/share/tesseract-ocr/5/tessdata",    // Linux Tesseract 5.x
+            "/usr/share/tesseract-ocr/4.00/tessdata", // Linux Tesseract 4.x
             "/usr/share/tesseract-ocr/tessdata",      // Linux alternative
+            "/usr/share/tessdata",                    // Linux generic
             "/opt/homebrew/share/tessdata",           // macOS Homebrew
             "/usr/local/share/tessdata"               // macOS alternative
         };
