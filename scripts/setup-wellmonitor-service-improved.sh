@@ -59,6 +59,17 @@ echo
 
 # Create the systemd service file
 echo "📝 Creating systemd service file..."
+
+# Check if user has environment variables set
+ENV_VARS=""
+if [ -n "$WELLMONITOR_IOTHUB_CONNECTION_STRING" ]; then
+    ENV_VARS="Environment=WELLMONITOR_IOTHUB_CONNECTION_STRING=$WELLMONITOR_IOTHUB_CONNECTION_STRING"
+    echo "✅ Found WELLMONITOR_IOTHUB_CONNECTION_STRING in environment"
+else
+    echo "⚠️  WELLMONITOR_IOTHUB_CONNECTION_STRING not found in environment"
+    echo "   You'll need to set environment variables manually after service creation"
+fi
+
 SERVICE_FILE_CONTENT="[Unit]
 Description=WellMonitor Device Service
 After=network.target
@@ -73,8 +84,9 @@ ExecStart=$EXEC_START
 Restart=always
 RestartSec=10
 Environment=ASPNETCORE_ENVIRONMENT=Production
-Environment=WELLMONITOR_SECRETS_MODE=hybrid
+Environment=WELLMONITOR_SECRETS_MODE=environment
 Environment=DOTNET_EnableDiagnostics=0
+$ENV_VARS
 
 # Logging
 StandardOutput=journal
@@ -124,3 +136,11 @@ echo "• Restart service:    sudo systemctl restart $SERVICE_NAME"
 echo "• Stop service:       sudo systemctl stop $SERVICE_NAME"
 echo "• Check status:       sudo systemctl status $SERVICE_NAME"
 echo "• Manual test:        cd $WORK_DIR && $EXEC_START"
+echo
+echo "⚠️  IMPORTANT: Environment Variables"
+echo "If the service fails to start, you may need to set environment variables:"
+echo "• Edit service:       sudo systemctl edit $SERVICE_NAME --full"
+echo "• Add this line:      Environment=WELLMONITOR_IOTHUB_CONNECTION_STRING=your-connection-string"
+echo "• Then reload:        sudo systemctl daemon-reload && sudo systemctl restart $SERVICE_NAME"
+echo
+echo "See environment-setup.md for detailed configuration instructions."
