@@ -192,6 +192,62 @@ sudo -u wellmonitor rm /var/lib/wellmonitor/wellmonitor.db
 sudo systemctl start wellmonitor
 ```
 
+### Issue: Camera DMA Error - "Could not open any dmaHeap device"
+
+**Symptoms:**
+- Service running but no debug images created
+- Logs show "Could not open any dmaHeap device"
+- Error: "rpicam-apps currently only supports the Raspberry Pi platforms"
+
+**Causes:**
+- Insufficient GPU memory allocation
+- Camera interface not properly enabled
+- Conflicting camera processes
+
+**Solutions:**
+
+1. **Quick Fix** (automated):
+   ```bash
+   # Use automated fix script
+   cd ~/WellMonitor
+   ./scripts/maintenance/fix-camera-dma-error.sh --fix
+   ```
+
+2. **Manual Fix**:
+   ```bash
+   # Increase GPU memory allocation
+   sudo nano /boot/config.txt
+   # Add or modify: gpu_mem=128
+   
+   # Enable camera (if needed)
+   echo "camera_auto_detect=1" | sudo tee -a /boot/config.txt
+   
+   # Kill conflicting processes
+   sudo pkill -f libcamera
+   sudo pkill -f rpicam
+   
+   # Reboot to apply boot config changes
+   sudo reboot
+   
+   # After reboot, restart service
+   sudo systemctl restart wellmonitor
+   ```
+
+3. **Verification**:
+   ```bash
+   # Test camera manually
+   libcamera-hello --list-cameras
+   libcamera-still -o test.jpg --timeout 2000 --nopreview
+   
+   # Monitor service logs
+   sudo journalctl -u wellmonitor -f | grep -i camera
+   
+   # Check for new debug images
+   ls -la ~/WellMonitor/src/WellMonitor.Device/debug_images/
+   ```
+
+**Note**: Modern Raspberry Pi OS (Bullseye+) has camera enabled by default, but may still need GPU memory configuration.
+
 ## Diagnostic Procedures
 
 ### Comprehensive System Check

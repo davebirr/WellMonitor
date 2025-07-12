@@ -114,6 +114,15 @@ scripts/
   - Resolves common camera issues
   - **Usage**: `./scripts/maintenance/fix-camera-settings.sh`
 
+- **`fix-camera-dma-error.sh`** - Camera DMA error resolution
+  - Fixes "Could not open any dmaHeap device" errors
+  - Automated GPU memory and camera interface configuration
+  - **Usage**: `./scripts/maintenance/fix-camera-dma-error.sh --fix`
+
+- **`Fix-CameraDmaError.ps1`** - Remote camera fix from Windows
+  - Executes camera DMA fix on Pi from Windows machine
+  - **Usage**: `.\scripts\maintenance\Fix-CameraDmaError.ps1 -PiAddress "192.168.1.100" -ApplyFix`
+
 - **`fix-script-permissions.sh`** - Script permission corrections
   - Ensures all scripts have proper execution permissions
   - **Usage**: `./scripts/maintenance/fix-script-permissions.sh`

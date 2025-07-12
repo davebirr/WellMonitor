@@ -11,18 +11,28 @@ Hardware configuration and optimization guide for camera capture and OCR process
 4. **Keep lens clean** and free from condensation
 
 ### Camera Module Verification
+
+**Note**: In modern Raspberry Pi OS (Bullseye and later), the camera is enabled by default and no longer requires configuration through `raspi-config`.
+
 ```bash
 # Check camera detection
-ls -la /dev/video*
-
-# Test camera functionality
 libcamera-hello --list-cameras
+
+# Verify camera hardware
+ls -la /dev/video*
 
 # Basic camera test
 libcamera-still -o test.jpg --width 1280 --height 720
 
 # Check image quality
 display test.jpg  # or transfer to view on another system
+```
+
+**Legacy Camera Configuration** (only needed for older Pi OS versions):
+```bash
+# Only if using older Raspberry Pi OS versions
+sudo raspi-config
+# Navigate to Interface Options → Camera → Enable (if available)
 ```
 
 ## Camera Configuration for LED Displays
@@ -258,6 +268,65 @@ sudo journalctl -u wellmonitor -f | grep -i "ocr\|confidence"
 sudo -u wellmonitor sqlite3 /var/lib/wellmonitor/wellmonitor.db "SELECT * FROM readings ORDER BY timestamp DESC LIMIT 10;"
 ```
 
+## Camera DMA Error Troubleshooting
+
+If you encounter "Could not open any dmaHeap device" errors:
+
+**Common Causes:**
+1. **Insufficient GPU memory**: The camera requires adequate GPU memory allocation
+2. **Camera interface disabled**: Some Pi OS versions may have camera disabled
+3. **Hardware conflicts**: Multiple processes trying to access camera simultaneously
+
+**Solutions:**
+
+1. **Increase GPU Memory Split**:
+```bash
+# Edit boot configuration
+sudo nano /boot/config.txt
+
+# Add or modify this line (allocate 128MB to GPU)
+gpu_mem=128
+
+# Reboot to apply changes
+sudo reboot
+```
+
+2. **Enable Camera Interface** (if needed):
+```bash
+# Check if camera interface is enabled
+grep -E "^(start_x|camera_auto_detect)" /boot/config.txt
+
+# Enable camera if not present
+echo "camera_auto_detect=1" | sudo tee -a /boot/config.txt
+echo "start_x=1" | sudo tee -a /boot/config.txt
+
+# Disable camera LED (optional)
+echo "disable_camera_led=1" | sudo tee -a /boot/config.txt
+
+sudo reboot
+```
+
+3. **Check for Process Conflicts**:
+```bash
+# Kill any processes using the camera
+sudo pkill -f libcamera
+sudo pkill -f rpicam
+
+# Restart WellMonitor service
+sudo systemctl restart wellmonitor
+```
+
+4. **Verify Camera Module**:
+```bash
+# Check camera detection
+libcamera-hello --list-cameras
+
+# Test basic capture
+libcamera-still -o test.jpg --timeout 2000 --nopreview
+
+# If the above works, the camera hardware is functional
+```
+
 ## Troubleshooting
 
 ### Poor OCR Accuracy
@@ -277,16 +346,52 @@ sudo -u wellmonitor sqlite3 /var/lib/wellmonitor/wellmonitor.db "SELECT * FROM r
 ### Camera Issues
 
 **Symptoms:**
+- "Could not open any dmaHeap device" errors
+- "rpicam-apps currently only supports the Raspberry Pi platforms" 
 - Dark or overexposed images
 - Blurry captures
 - No images captured
 
 **Solutions:**
-1. **Check camera connection**: `ls -la /dev/video*`
-2. **Test manual capture**: `libcamera-still -o test.jpg`
-3. **Adjust exposure settings** for environment
-4. **Verify camera permissions** in systemd service
-5. **Check for hardware conflicts**
+
+1. **Fix DMA/GPU Memory Issues**:
+```bash
+# Use automated fix script
+./scripts/maintenance/fix-camera-dma-error.sh --fix
+
+# Or manual fixes:
+# Increase GPU memory
+sudo nano /boot/config.txt
+# Add: gpu_mem=128
+
+# Enable camera (if needed)
+echo "camera_auto_detect=1" | sudo tee -a /boot/config.txt
+
+# Reboot after boot config changes
+sudo reboot
+```
+
+2. **Check camera hardware**: 
+```bash
+libcamera-hello --list-cameras
+ls -la /dev/video*
+```
+
+3. **Test manual capture**: 
+```bash
+libcamera-still -o test.jpg --timeout 2000 --nopreview
+```
+
+4. **Kill conflicting processes**:
+```bash
+sudo pkill -f libcamera
+sudo pkill -f rpicam
+sudo systemctl restart wellmonitor
+```
+
+5. **Verify service permissions** and systemd configuration
+
+**Note**: Modern Raspberry Pi OS (Bullseye+) has camera enabled by default. The DMA error usually indicates insufficient GPU memory allocation.
 
 ### Performance Issues
 

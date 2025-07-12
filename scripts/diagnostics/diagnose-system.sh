@@ -155,7 +155,15 @@ if grep -q "camera_auto_detect=1" /boot/config.txt 2>/dev/null; then
 elif grep -q "start_x=1" /boot/config.txt 2>/dev/null; then
     print_success "Legacy support enabled"
 else
-    print_warning "May not be enabled - run: sudo raspi-config → Interface Options → Camera"
+    # In modern Pi OS, camera is enabled by default
+    if [ -d "/sys/class/video4linux" ] && [ "$(ls -A /sys/class/video4linux 2>/dev/null)" ]; then
+        print_success "Camera available (modern Pi OS - no config needed)"
+    else
+        print_warning "Camera may need configuration - check GPU memory and /boot/config.txt"
+        echo "     Modern Pi OS: Camera should work by default"
+        echo "     If issues persist: sudo nano /boot/config.txt"
+        echo "     Add: gpu_mem=128 and camera_auto_detect=1"
+    fi
 fi
 
 # Check camera permissions
