@@ -70,7 +70,7 @@ sudo ./dotnet-install.sh --channel 8.0 --install-dir /usr/share/dotnet
 sudo ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
 
 # Add to PATH for current session
-export PATH=$PATH:/home/pi/.dotnet:/usr/share/dotnet
+export PATH=$PATH:/home/davidb/.dotnet:/usr/share/dotnet
 
 # To make it permanent, add the export line to ~/.bashrc or ~/.profile
 
@@ -112,20 +112,90 @@ sudo raspi-config
 
 ---
 
+## 3e. Set up Github CLI
+
+   To Install Gibhub CLI
+   ```bash
+   (type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
+      && sudo mkdir -p -m 755 /etc/apt/keyrings \
+      && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+      && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+      && sudo mkdir -p -m 755 /etc/apt/sources.list.d \
+      && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+      && sudo apt update \
+      && sudo apt install gh -y
+   ```
+
+   To Update Github CLI
+   ```bash
+   sudo apt update
+   sudo apt install gh
+   ```
+
+## 3f. Clone Repository and Configure Git
+
+   ```bash
+   # Authenticate with GitHub CLI
+   gh auth login
+   
+   # Clone the repository
+   git clone https://github.com/davebirr/WellMonitor.git
+   cd WellMonitor
+   
+   # Configure git for cross-platform compatibility
+   git config core.autocrlf input
+   git config core.filemode false
+   
+   # The scripts should now have proper permissions
+   ls -la scripts/
+   ```
+
+   **Note:** The repository includes `.gitattributes` to handle line endings and executable permissions automatically. The sync scripts (`scripts/sync-and-run.sh` and `scripts/quick-sync.sh`) should be executable without manual `chmod`.
+
+## 3g. Configure Python Environment for WellMonitor OCR
+
+   The WellMonitor application uses Python OCR as a fallback when the .NET Tesseract library has issues. Ensure the Python virtual environment is activated before running the application:
+
+   ```bash
+   # Activate the Python virtual environment (required for OCR)
+   source ~/iotenv/bin/activate
+   
+   # Verify OCR dependencies are installed
+   python3 -c "import pytesseract, PIL; print('OCR dependencies OK')"
+   
+   # Run WellMonitor with Python OCR support
+   cd WellMonitor
+   ./scripts/sync-and-run.sh
+   ```
+
+   **Important:** Always activate the Python virtual environment before starting WellMonitor to ensure OCR functionality works properly.
+
 ---
 
 ## 4. Set Up Python Virtual Environment
 
-```
+```bash
+   # Create and activate virtual environment
    python3 -m venv ~/iotenv
    source ~/iotenv/bin/activate
+   
+   # Upgrade pip and install core packages
    pip install --upgrade pip
    pip install azure-iot-device
+   
+   # Install OCR dependencies for WellMonitor
+   pip install pytesseract pillow
+   
+   # Install other IoT packages as needed
+   pip install sense-hat picamera
    ```
 
-   Install other packages as needed:
-   ```
-   pip install sense-hat picamera
+   **Note:** The WellMonitor application requires `pytesseract` and `pillow` for OCR functionality. These must be installed in the virtual environment to avoid "externally managed environment" errors on modern Python installations.
+
+   To activate the environment later:
+   ```bash
+   source ~/iotenv/bin/activate
    ```
 
    ---
