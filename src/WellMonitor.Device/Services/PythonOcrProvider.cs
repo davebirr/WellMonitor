@@ -233,8 +233,9 @@ def extract_text_with_tesseract(image_path):
         # Configure Tesseract
         custom_config = r'--oem " + engineMode + " --psm " + psmMode + @"'
         
-        if """ + (string.IsNullOrEmpty(charWhitelist) ? "False" : $"\"{charWhitelist}\"") + @""":
-            custom_config += f' -c tessedit_char_whitelist=" + charWhitelist + @"'
+        char_whitelist = """ + (string.IsNullOrEmpty(charWhitelist) ? "None" : $"'{charWhitelist.Replace("'", "\\'")}'") + @"""
+        if char_whitelist is not None:
+            custom_config += f' -c tessedit_char_whitelist={char_whitelist}'
         
         # Extract text
         image = Image.open(processed_image_path)
