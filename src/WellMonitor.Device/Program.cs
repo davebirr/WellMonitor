@@ -54,7 +54,6 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton(new AlertOptions());
         services.AddSingleton(new MonitoringOptions());
         services.AddSingleton(new ImageQualityOptions());
-        services.AddSingleton(new DebugOptions());
         services.AddSingleton(new PumpAnalysisOptions());
         services.AddSingleton(new PowerManagementOptions());
         services.AddSingleton(new StatusDetectionOptions());
@@ -74,6 +73,9 @@ var host = Host.CreateDefaultBuilder(args)
         
         // Register OCR services
         RegisterOcrServices(services, context.Configuration);
+        
+        // Register debug options with runtime configuration
+        RegisterDebugOptions(services, context.Configuration);
         
         // Register pump analysis service
         services.AddSingleton<PumpStatusAnalyzer>();
@@ -163,12 +165,27 @@ static void RegisterSecretsService(IServiceCollection services, IConfiguration c
     }
 }
 
+// Helper method to register Debug options with runtime configuration
+static void RegisterDebugOptions(IServiceCollection services, IConfiguration configuration)
+{
+    // Register runtime configuration source for Debug options
+    services.AddSingleton<RuntimeDebugOptionsSource>();
+    
+    // Register the runtime options source as the primary IOptionsMonitor<DebugOptions>
+    services.AddSingleton<IOptionsMonitor<DebugOptions>>(provider => provider.GetRequiredService<RuntimeDebugOptionsSource>());
+    
+    // Register the runtime configuration service (needs both OCR and Debug sources)
+    services.AddSingleton<IRuntimeConfigurationService, RuntimeConfigurationService>();
+    
+    // Configure Debug options from configuration as fallback
+    services.Configure<DebugOptions>(configuration.GetSection("Debug"));
+}
+
 // Helper method to register OCR services
 static void RegisterOcrServices(IServiceCollection services, IConfiguration configuration)
 {
     // Register runtime configuration source for OCR options
     services.AddSingleton<RuntimeOcrOptionsSource>();
-    services.AddSingleton<IRuntimeConfigurationService, RuntimeConfigurationService>();
     
     // Register the runtime options source as the primary IOptionsMonitor<OcrOptions>
     services.AddSingleton<IOptionsMonitor<OcrOptions>>(provider => provider.GetRequiredService<RuntimeOcrOptionsSource>());

@@ -171,6 +171,26 @@ namespace WellMonitor.Device.Services
                 {
                     _logger.LogWarning(ex, "Failed to load OCR configuration from device twin, using defaults");
                 }
+
+                // Load Debug configuration from device twin
+                try
+                {
+                    var debugOptions = await deviceTwinService.FetchAndApplyDebugConfigAsync(
+                        deviceClient,
+                        configuration,
+                        _logger);
+                    
+                    // Apply Debug configuration to runtime configuration service
+                    var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
+                    await runtimeConfigService.UpdateDebugOptionsAsync(debugOptions);
+                    
+                    _logger.LogInformation("Debug configuration loaded and applied from device twin: ImageSaveEnabled={ImageSaveEnabled}, DebugMode={DebugMode}", 
+                        debugOptions.ImageSaveEnabled, debugOptions.DebugMode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load Debug configuration from device twin, using defaults");
+                }
                 
                 _logger.LogInformation("Device twin configuration loaded successfully");
                 
