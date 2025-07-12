@@ -174,11 +174,8 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     services.AddSingleton<IOcrProvider, PythonOcrProvider>();
     services.AddSingleton<IOcrProvider, NullOcrProvider>();
     
-    // Register main OCR service
+    // Register main OCR service (now handles live configuration updates)
     services.AddSingleton<IOcrService, OcrService>();
-    
-    // Register dynamic OCR service for device twin configuration
-    services.AddSingleton<IDynamicOcrService, DynamicOcrService>();
     
     // Register pump status analyzer for interpreting OCR results
     services.AddSingleton<PumpStatusAnalyzer>();

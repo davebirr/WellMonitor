@@ -11,31 +11,56 @@ using WellMonitor.Shared.Models;
 namespace WellMonitor.Device.Services;
 
 /// <summary>
-/// High-quality OCR service with enterprise-grade features
-/// Supports both Tesseract and Azure Cognitive Services
-/// Designed for industrial monitoring applications
+/// High-performance OCR service with live configuration updates and dual provider support
 /// </summary>
-public class OcrService : IOcrService
+public partial class OcrService : IOcrService
 {
     private readonly ILogger<OcrService> _logger;
-    private readonly OcrOptions _options;
-    private readonly IOcrProvider _primaryProvider;
-    private readonly IOcrProvider? _fallbackProvider;
+    private readonly IOptionsMonitor<OcrOptions> _optionsMonitor;
+    private IOcrProvider _primaryProvider = null!;
+    private IOcrProvider? _fallbackProvider;
     private readonly OcrStatistics _statistics;
     private readonly SemaphoreSlim _semaphore;
+    private readonly IEnumerable<IOcrProvider> _providers;
+
+    // Compiled regex patterns for better performance
+    [GeneratedRegex(@"[^\w\s\.\-]", RegexOptions.Compiled)]
+    private static partial Regex CleanTextRegex();
+    
+    [GeneratedRegex(@"(\d+\.?\d*)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex CurrentValueRegex();
+    
+    [GeneratedRegex(@"^\d+\.?\d*$", RegexOptions.Compiled)]
+    private static partial Regex DecimalNumberRegex();
 
     public OcrService(
         ILogger<OcrService> logger,
-        IOptions<OcrOptions> options,
+        IOptionsMonitor<OcrOptions> optionsMonitor,
         IEnumerable<IOcrProvider> providers)
     {
         _logger = logger;
-        _options = options.Value;
+        _optionsMonitor = optionsMonitor;
+        _providers = providers;
         _statistics = new OcrStatistics();
         _semaphore = new SemaphoreSlim(Environment.ProcessorCount, Environment.ProcessorCount);
 
+        // Initial provider selection
+        SelectProviders(_optionsMonitor.CurrentValue);
+
+        // Subscribe to configuration changes
+        _optionsMonitor.OnChange(OnConfigurationChanged);
+    }
+
+    private void OnConfigurationChanged(OcrOptions newOptions)
+    {
+        _logger.LogInformation("OCR configuration changed, updating providers. New provider: {Provider}", newOptions.Provider);
+        SelectProviders(newOptions);
+    }
+
+    private void SelectProviders(OcrOptions options)
+    {
         // Select primary and fallback providers based on configuration
-        var providerList = providers.ToList();
+        var providerList = _providers.ToList();
         
         // Check for available (initialized) providers
         var availableProviders = providerList.Where(p => p.IsAvailable).ToList();
@@ -49,7 +74,7 @@ public class OcrService : IOcrService
         }
         else
         {
-            _primaryProvider = availableProviders.FirstOrDefault(p => p.Name == _options.Provider) 
+            _primaryProvider = availableProviders.FirstOrDefault(p => p.Name == options.Provider) 
                 ?? availableProviders.FirstOrDefault() 
                 ?? providerList.FirstOrDefault()!;
 
@@ -217,7 +242,9 @@ public class OcrService : IOcrService
     /// </summary>
     public async Task<bool> PreprocessImageAsync(string inputPath, string outputPath, CancellationToken cancellationToken = default)
     {
-        if (!_options.EnablePreprocessing)
+        var options = _optionsMonitor.CurrentValue;
+        
+        if (!options.EnablePreprocessing)
         {
             return true;
         }
@@ -231,40 +258,40 @@ public class OcrService : IOcrService
             image.Mutate(x =>
             {
                 // Convert to grayscale
-                if (_options.ImagePreprocessing.EnableGrayscale)
+                if (options.ImagePreprocessing.EnableGrayscale)
                 {
                     x.Grayscale();
                     preprocessingSteps.Add("Grayscale");
                 }
 
                 // Scale image
-                if (_options.ImagePreprocessing.EnableScaling && _options.ImagePreprocessing.ScaleFactor != 1.0)
+                if (options.ImagePreprocessing.EnableScaling && options.ImagePreprocessing.ScaleFactor != 1.0)
                 {
-                    var newWidth = (int)(image.Width * _options.ImagePreprocessing.ScaleFactor);
-                    var newHeight = (int)(image.Height * _options.ImagePreprocessing.ScaleFactor);
+                    var newWidth = (int)(image.Width * options.ImagePreprocessing.ScaleFactor);
+                    var newHeight = (int)(image.Height * options.ImagePreprocessing.ScaleFactor);
                     x.Resize(newWidth, newHeight);
-                    preprocessingSteps.Add($"Scale ({_options.ImagePreprocessing.ScaleFactor}x)");
+                    preprocessingSteps.Add($"Scale ({options.ImagePreprocessing.ScaleFactor}x)");
                 }
 
                 // Adjust brightness
-                if (_options.ImagePreprocessing.EnableBrightnessAdjustment)
+                if (options.ImagePreprocessing.EnableBrightnessAdjustment)
                 {
-                    x.Brightness(_options.ImagePreprocessing.BrightnessAdjustment / 100f);
-                    preprocessingSteps.Add($"Brightness ({_options.ImagePreprocessing.BrightnessAdjustment})");
+                    x.Brightness(options.ImagePreprocessing.BrightnessAdjustment / 100f);
+                    preprocessingSteps.Add($"Brightness ({options.ImagePreprocessing.BrightnessAdjustment})");
                 }
 
                 // Enhance contrast
-                if (_options.ImagePreprocessing.EnableContrastEnhancement)
+                if (options.ImagePreprocessing.EnableContrastEnhancement)
                 {
-                    x.Contrast((float)_options.ImagePreprocessing.ContrastFactor);
-                    preprocessingSteps.Add($"Contrast ({_options.ImagePreprocessing.ContrastFactor})");
+                    x.Contrast((float)options.ImagePreprocessing.ContrastFactor);
+                    preprocessingSteps.Add($"Contrast ({options.ImagePreprocessing.ContrastFactor})");
                 }
 
                 // Apply binary threshold for LED displays
-                if (_options.ImagePreprocessing.EnableBinaryThresholding)
+                if (options.ImagePreprocessing.EnableBinaryThresholding)
                 {
-                    x.BinaryThreshold(_options.ImagePreprocessing.BinaryThreshold / 255f);
-                    preprocessingSteps.Add($"Binary Threshold ({_options.ImagePreprocessing.BinaryThreshold})");
+                    x.BinaryThreshold(options.ImagePreprocessing.BinaryThreshold / 255f);
+                    preprocessingSteps.Add($"Binary Threshold ({options.ImagePreprocessing.BinaryThreshold})");
                 }
             });
 
@@ -290,11 +317,13 @@ public class OcrService : IOcrService
             return false;
         }
 
+        var options = _optionsMonitor.CurrentValue;
+
         // Check minimum confidence threshold
-        if (ocrResult.Confidence < _options.MinimumConfidence)
+        if (ocrResult.Confidence < options.MinimumConfidence)
         {
             _logger.LogWarning("OCR confidence {Confidence} below minimum threshold {MinThreshold}",
-                ocrResult.Confidence, _options.MinimumConfidence);
+                ocrResult.Confidence, options.MinimumConfidence);
             return false;
         }
 
@@ -370,11 +399,12 @@ public class OcrService : IOcrService
     /// </summary>
     private async Task<OcrResult> ExtractTextInternalAsync(Stream imageStream, CancellationToken cancellationToken)
     {
+        var options = _optionsMonitor.CurrentValue;
         OcrResult? result = null;
         Exception? lastException = null;
 
         // Try primary provider first
-        for (int attempt = 0; attempt < _options.MaxRetryAttempts; attempt++)
+        for (int attempt = 0; attempt < options.MaxRetryAttempts; attempt++)
         {
             try
             {
@@ -394,7 +424,7 @@ public class OcrService : IOcrService
                     attempt + 1, _primaryProvider.Name);
             }
 
-            if (attempt < _options.MaxRetryAttempts - 1)
+            if (attempt < options.MaxRetryAttempts - 1)
             {
                 await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)), cancellationToken);
             }
@@ -410,7 +440,7 @@ public class OcrService : IOcrService
                 
                 if (result.Success && ValidateOcrQuality(result))
                 {
-                    result.RetryAttempts = _options.MaxRetryAttempts;
+                    result.RetryAttempts = options.MaxRetryAttempts;
                     return result;
                 }
             }
@@ -420,7 +450,7 @@ public class OcrService : IOcrService
             }
         }
 
-        return CreateErrorResult($"OCR failed after {_options.MaxRetryAttempts} attempts: {lastException?.Message}");
+        return CreateErrorResult($"OCR failed after {options.MaxRetryAttempts} attempts: {lastException?.Message}");
     }
 
     /// <summary>
@@ -446,7 +476,7 @@ public class OcrService : IOcrService
             return string.Empty;
 
         // Remove common OCR artifacts and normalize
-        return Regex.Replace(text, @"[^\w\s\.\-]", "")
+        return CleanTextRegex().Replace(text, "")
             .Replace("O", "0")  // Common OCR mistake
             .Replace("l", "1")  // Common OCR mistake
             .Replace("S", "5")  // Common OCR mistake
@@ -480,7 +510,7 @@ public class OcrService : IOcrService
         confidence = 0;
 
         // Regular expression to find decimal numbers
-        var match = Regex.Match(text, @"(\d+\.?\d*)", RegexOptions.IgnoreCase);
+        var match = CurrentValueRegex().Match(text);
         
         if (match.Success && double.TryParse(match.Value, out current))
         {
@@ -504,7 +534,7 @@ public class OcrService : IOcrService
         var baseConfidence = (double)parsedValue.Length / originalText.Length;
         
         // Adjust based on expected patterns
-        if (Regex.IsMatch(originalText, @"^\d+\.?\d*$"))
+        if (DecimalNumberRegex().IsMatch(originalText))
         {
             baseConfidence += 0.2; // Clean decimal number
         }

@@ -12,30 +12,22 @@ namespace WellMonitor.Device.Services;
 /// <summary>
 /// Service for analyzing pump readings and determining pump status
 /// </summary>
-public class PumpStatusAnalyzer
+public partial class PumpStatusAnalyzer(
+    ILogger<PumpStatusAnalyzer> logger, 
+    AlertOptions alertOptions, 
+    IDeviceTwinService deviceTwinService,
+    IConfiguration configuration)
 {
-    private readonly ILogger<PumpStatusAnalyzer> _logger;
-    private readonly AlertOptions _alertOptions;
-    private readonly IDeviceTwinService _deviceTwinService;
-    private readonly IConfiguration _configuration;
+    private readonly ILogger<PumpStatusAnalyzer> _logger = logger;
+    private readonly AlertOptions _alertOptions = alertOptions;
+    private readonly IDeviceTwinService _deviceTwinService = deviceTwinService;
+    private readonly IConfiguration _configuration = configuration;
     
     // Cached configuration options (updated via device twin)
     private PumpAnalysisOptions _pumpAnalysisOptions = new();
     private PowerManagementOptions _powerManagementOptions = new();
     private StatusDetectionOptions _statusDetectionOptions = new();
     private DateTime _lastConfigUpdate = DateTime.MinValue;
-
-    public PumpStatusAnalyzer(
-        ILogger<PumpStatusAnalyzer> logger, 
-        AlertOptions alertOptions, 
-        IDeviceTwinService deviceTwinService,
-        IConfiguration configuration)
-    {
-        _logger = logger;
-        _alertOptions = alertOptions;
-        _deviceTwinService = deviceTwinService;
-        _configuration = configuration;
-    }
 
     /// <summary>
     /// Updates configuration from device twin (called periodically by monitoring service)
@@ -148,18 +140,12 @@ public class PumpStatusAnalyzer
 
     private double? ExtractCurrentReading(string text)
     {
-        // Patterns to match current readings like "5.2", "4.15", "0.00", etc.
-        var patterns = new[]
-        {
-            @"\b(\d{1,2}\.\d{1,2})\b",  // Matches "5.2", "12.34", etc.
-            @"\b(\d{1,2}\.\d)\b",       // Matches "5.2", "12.3", etc.
-            @"\b(\d{1,2})\.\b",         // Matches "5.", "12.", etc.
-            @"\b(\d{1,2})\b"            // Matches whole numbers "5", "12", etc.
-        };
+        // Use compiled regex patterns for better performance
+        Regex[] regexes = [TwoDecimalRegex(), OneDecimalRegex(), TrailingDotRegex(), WholeNumberRegex()];
 
-        foreach (var pattern in patterns)
+        foreach (var regex in regexes)
         {
-            var matches = Regex.Matches(text, pattern);
+            var matches = regex.Matches(text);
             
             foreach (Match match in matches)
             {
@@ -195,4 +181,23 @@ public class PumpStatusAnalyzer
         
         return PumpStatus.Unknown;
     }
+}
+
+/// <summary>
+/// Service for analyzing pump status from current readings and OCR text
+/// </summary>
+public partial class PumpStatusAnalyzer
+{
+    // Compiled regex patterns for better performance
+    [GeneratedRegex(@"\b(\d{1,2}\.\d{1,2})\b", RegexOptions.Compiled)]
+    private static partial Regex TwoDecimalRegex();
+    
+    [GeneratedRegex(@"\b(\d{1,2}\.\d)\b", RegexOptions.Compiled)]
+    private static partial Regex OneDecimalRegex();
+    
+    [GeneratedRegex(@"\b(\d{1,2})\.\b", RegexOptions.Compiled)]
+    private static partial Regex TrailingDotRegex();
+    
+    [GeneratedRegex(@"\b(\d{1,2})\b", RegexOptions.Compiled)]
+    private static partial Regex WholeNumberRegex();
 }

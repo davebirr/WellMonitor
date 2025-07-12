@@ -21,7 +21,7 @@ namespace WellMonitor.Device.Services
     {
         private readonly ICameraService _cameraService;
         private readonly IGpioService _gpioService;
-        private readonly IDynamicOcrService _dynamicOcrService;
+        private readonly IOcrService _ocrService;
         private readonly PumpStatusAnalyzer _pumpStatusAnalyzer;
         private readonly IServiceScopeFactory _serviceScopeFactory;
         private readonly ILogger<MonitoringBackgroundService> _logger;
@@ -36,7 +36,7 @@ namespace WellMonitor.Device.Services
         public MonitoringBackgroundService(
             ICameraService cameraService,
             IGpioService gpioService,
-            IDynamicOcrService dynamicOcrService,
+            IOcrService ocrService,
             PumpStatusAnalyzer pumpStatusAnalyzer,
             IDeviceTwinService deviceTwinService,
             IConfiguration configuration,
@@ -45,7 +45,7 @@ namespace WellMonitor.Device.Services
         {
             _cameraService = cameraService;
             _gpioService = gpioService;
-            _dynamicOcrService = dynamicOcrService;
+            _ocrService = ocrService;
             _pumpStatusAnalyzer = pumpStatusAnalyzer;
             _deviceTwinService = deviceTwinService;
             _configuration = configuration;
@@ -100,8 +100,7 @@ namespace WellMonitor.Device.Services
                 _logger.LogDebug("Captured image: {Size} bytes", imageBytes.Length);
 
                 // Process image with OCR to extract current reading and status
-                var ocrService = _dynamicOcrService.GetCurrentOcrService();
-                var pumpReading = await ocrService.ProcessImageAsync(imageBytes, cancellationToken);
+                var pumpReading = await _ocrService.ProcessImageAsync(imageBytes, cancellationToken);
                 
                 _logger.LogDebug("OCR processing completed: Status={Status}, Current={Current}A, Confidence={Confidence}, Valid={Valid}", 
                     pumpReading.Status, pumpReading.CurrentAmps?.ToString("F2") ?? "N/A", pumpReading.Confidence, pumpReading.IsValid);
