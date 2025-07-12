@@ -18,6 +18,7 @@ namespace WellMonitor.Device.Services
         private readonly IGpioService _gpioService;
         private readonly ICameraService _cameraService;
         private readonly IEnumerable<IOcrProvider> _ocrProviders;
+        private readonly IOcrService _ocrService;
         private readonly OcrDiagnosticsService _ocrDiagnosticsService;
         private readonly ILogger<HardwareInitializationService> _logger;
         
@@ -25,12 +26,14 @@ namespace WellMonitor.Device.Services
             IGpioService gpioService,
             ICameraService cameraService,
             IEnumerable<IOcrProvider> ocrProviders,
+            IOcrService ocrService,
             OcrDiagnosticsService ocrDiagnosticsService,
             ILogger<HardwareInitializationService> logger)
         {
             _gpioService = gpioService;
             _cameraService = cameraService;
             _ocrProviders = ocrProviders;
+            _ocrService = ocrService;
             _ocrDiagnosticsService = ocrDiagnosticsService;
             _logger = logger;
         }
@@ -177,6 +180,10 @@ namespace WellMonitor.Device.Services
                     _logger.LogWarning("Failed OCR providers: {FailedProviders}", 
                         string.Join(", ", failedProviders.Select(f => f.Provider)));
                 }
+
+                // Refresh OCR service provider selection now that providers are initialized
+                _logger.LogInformation("Refreshing OCR provider selection with newly initialized providers...");
+                _ocrService.RefreshProviderSelection();
             }
             catch (Exception ex)
             {

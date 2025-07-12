@@ -105,12 +105,12 @@ namespace WellMonitor.Device.Services
 
                     // Save debug copy if both debug mode is enabled AND debug path is configured
                     var debugOptions = _debugOptions.CurrentValue;
-                    _logger.LogDebug("Debug image check: ImageSaveEnabled={Enabled}, DebugImagePath='{Path}'", 
+                    _logger.LogInformation("Debug image check: ImageSaveEnabled={Enabled}, DebugImagePath='{Path}'", 
                         debugOptions.ImageSaveEnabled, _cameraOptions.DebugImagePath ?? "NULL");
                     
                     if (debugOptions.ImageSaveEnabled && !string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
                     {
-                        _logger.LogDebug("Saving debug image...");
+                        _logger.LogInformation("Saving debug image...");
                         await SaveDebugImageAsync(imageBytes);
                     }
                     else if (debugOptions.ImageSaveEnabled && string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
@@ -119,7 +119,7 @@ namespace WellMonitor.Device.Services
                     }
                     else if (!debugOptions.ImageSaveEnabled)
                     {
-                        _logger.LogDebug("Debug image saving is disabled (debugImageSaveEnabled=false)");
+                        _logger.LogInformation("Debug image saving is disabled (debugImageSaveEnabled=false)");
                     }
 
                     return imageBytes;
@@ -223,7 +223,7 @@ namespace WellMonitor.Device.Services
                 var debugPath = Path.Combine(debugDirectory, fileName);
 
                 await File.WriteAllBytesAsync(debugPath, imageBytes);
-                _logger.LogDebug("Debug image saved to: {DebugPath}", debugPath);
+                _logger.LogInformation("Debug image saved to: {DebugPath}", debugPath);
             }
             catch (Exception ex)
             {

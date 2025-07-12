@@ -73,4 +73,10 @@ public interface IOcrService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Parsed pump reading</returns>
     Task<PumpReading> ProcessImageAsync(byte[] imageBytes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Refresh OCR provider selection based on current configuration and availability
+    /// Should be called after OCR providers have been initialized
+    /// </summary>
+    void RefreshProviderSelection();
 }

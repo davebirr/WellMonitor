@@ -609,5 +609,15 @@ public partial class OcrService : IOcrService
         }
     }
 
+    /// <summary>
+    /// Refresh OCR provider selection based on current configuration and availability
+    /// Should be called after OCR providers have been initialized
+    /// </summary>
+    public void RefreshProviderSelection()
+    {
+        _logger.LogInformation("Refreshing OCR provider selection after hardware initialization");
+        SelectProviders(_optionsMonitor.CurrentValue);
+    }
+
     #endregion
 }
