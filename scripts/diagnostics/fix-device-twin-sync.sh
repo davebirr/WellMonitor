@@ -54,6 +54,13 @@ print_section "3. Verifying Configuration"
 APP_DIR="/opt/wellmonitor"
 SECRETS_FILE="$APP_DIR/secrets.json"
 
+# Load environment variables from service environment file if running as root
+if [[ $EUID -eq 0 ]] && [[ -f "/etc/wellmonitor/environment" ]]; then
+    print_status $BLUE "🔍 Loading environment variables from service environment file..."
+    source /etc/wellmonitor/environment
+    print_status $GREEN "✅ Environment variables loaded from /etc/wellmonitor/environment"
+fi
+
 # Check for environment variable (preferred) or secrets file (legacy)
 if [[ -n "$WELLMONITOR_IOTHUB_CONNECTION_STRING" ]]; then
     print_status $GREEN "✅ Azure IoT connection string found: WELLMONITOR_IOTHUB_CONNECTION_STRING"
