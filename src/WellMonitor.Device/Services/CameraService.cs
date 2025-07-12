@@ -103,6 +103,9 @@ namespace WellMonitor.Device.Services
 
                     _logger.LogInformation("Successfully captured image: {Size} bytes", imageBytes.Length);
 
+                    // Validate image quality to detect potential issues
+                    await ValidateImageQuality(imageBytes, tempImagePath);
+
                     // Save debug copy if both debug mode is enabled AND debug path is configured
                     var debugOptions = _debugOptions.CurrentValue;
                     _logger.LogInformation("Debug image check: ImageSaveEnabled={Enabled}, DebugImagePath='{Path}'", 
@@ -159,9 +162,19 @@ namespace WellMonitor.Device.Services
                 "--height", _cameraOptions.Height.ToString(),
                 "--quality", _cameraOptions.Quality.ToString(),
                 "--timeout", _cameraOptions.WarmupTimeMs.ToString(),
-                "--encoding", "jpg",
-                "--immediate" // Take photo immediately after preview
+                "--encoding", "jpg"
             };
+
+            // Add immediate flag only if warmup time is short (reduces grey square issues)
+            if (_cameraOptions.WarmupTimeMs <= 2000)
+            {
+                args.Add("--immediate");
+                _logger.LogDebug("Using immediate capture (warmup: {WarmupMs}ms)", _cameraOptions.WarmupTimeMs);
+            }
+            else
+            {
+                _logger.LogDebug("Using normal capture with warmup: {WarmupMs}ms", _cameraOptions.WarmupTimeMs);
+            }
 
             // Add rotation if specified
             if (_cameraOptions.Rotation != 0)
@@ -227,7 +240,93 @@ namespace WellMonitor.Device.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to save debug image");
+                _logger.LogError(ex, "Failed to save debug image");
+            }
+        }
+
+        /// <summary>
+        /// Validates image quality to detect common issues like grey squares
+        /// </summary>
+        private async Task ValidateImageQuality(byte[] imageBytes, string imagePath)
+        {
+            try
+            {
+                // Basic size validation
+                if (imageBytes.Length < 5000) // Very small images are likely problematic
+                {
+                    _logger.LogWarning("Image quality warning: Very small image size ({Size} bytes) - may be grey square or minimal content", imageBytes.Length);
+                }
+                else if (imageBytes.Length > 1000000) // Unexpectedly large
+                {
+                    _logger.LogInformation("Image quality info: Large image size ({Size} bytes) - good detail capture", imageBytes.Length);
+                }
+                else
+                {
+                    _logger.LogDebug("Image quality info: Normal image size ({Size} bytes)", imageBytes.Length);
+                }
+
+                // Try to detect grey square by checking file header and basic properties
+                if (imageBytes.Length >= 10)
+                {
+                    // Check JPEG header
+                    if (imageBytes[0] == 0xFF && imageBytes[1] == 0xD8)
+                    {
+                        _logger.LogDebug("Image validation: Valid JPEG header detected");
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Image validation: Invalid or unexpected image format");
+                    }
+                }
+
+                // Advanced validation using ImageSharp (if available) or system tools
+                await ValidateImageContent(imagePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Image quality validation failed - continuing with capture");
+            }
+        }
+
+        /// <summary>
+        /// Performs advanced image content validation
+        /// </summary>
+        private async Task ValidateImageContent(string imagePath)
+        {
+            try
+            {
+                // Use 'file' command to get detailed image info if available
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "file",
+                        Arguments = $"\"{imagePath}\"",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+
+                process.Start();
+                var output = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
+                {
+                    _logger.LogDebug("Image file info: {FileInfo}", output.Trim());
+                    
+                    // Check for common indicators of issues
+                    if (output.Contains("very short") || output.Contains("truncated"))
+                    {
+                        _logger.LogWarning("Image quality issue: File appears truncated or corrupted");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Advanced image validation unavailable - skipping");
             }
         }
     }
