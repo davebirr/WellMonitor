@@ -25,12 +25,64 @@ namespace WellMonitor.Device.Services
             "syncIntervalMinutes", "logRetentionDays", "ocrMode", "powerAppEnabled"
         };
 
+        // OCR configuration properties
+        private readonly HashSet<string> _expectedOcrProperties = new()
+        {
+            "ocrProvider", "ocrMinimumConfidence", "ocrMaxRetryAttempts", "ocrTimeoutSeconds",
+            "ocrEnablePreprocessing", "ocrTesseractLanguage", "ocrTesseractEngineMode",
+            "ocrTesseractPageSegmentationMode", "ocrTesseractCharWhitelist",
+            "ocrAzureEndpoint", "ocrAzureKey", "ocrAzureRegion", "ocrAzureUseReadApi",
+            "ocrImagePreprocessing", "ocrImageScaling", "ocrImageScaleFactor",
+            "ocrImageBinaryThreshold", "ocrImageBrightnessAdjustment", "ocrImageContrastFactor",
+            "ocrRetrySettings"
+        };
+
+        // Debug and monitoring properties
+        private readonly HashSet<string> _expectedDebugProperties = new()
+        {
+            "debugMode", "debugImageSaveEnabled", "debugImageRetentionDays",
+            "enableVerboseOcrLogging", "logLevel"
+        };
+
+        // Monitoring and alert properties
+        private readonly HashSet<string> _expectedMonitoringProperties = new()
+        {
+            "monitoringIntervalSeconds", "telemetryIntervalMinutes", "syncIntervalHours",
+            "dataRetentionDays", "displayUnits"
+        };
+
+        // Alert configuration properties
+        private readonly HashSet<string> _expectedAlertProperties = new()
+        {
+            "alertConfig", "alertCooldownMinutes", "alertDryCountThreshold",
+            "alertRcycCountThreshold", "alertMaxRetryAttempts"
+        };
+
+        // Image quality properties
+        private readonly HashSet<string> _expectedImageQualityProperties = new()
+        {
+            "imageQualityMinThreshold", "imageQualityBrightnessMin", "imageQualityBrightnessMax",
+            "imageQualityContrastMin", "imageQualityNoiseMax"
+        };
+
+        // System properties
+        private readonly HashSet<string> _expectedSystemProperties = new()
+        {
+            "firmwareUpdateUrl", "$version"
+        };
+
         private readonly HashSet<string> _allExpectedProperties;
 
         public ConfigurationValidationService()
         {
             _allExpectedProperties = new HashSet<string>(_expectedCameraProperties);
             _allExpectedProperties.UnionWith(_expectedWellMonitorProperties);
+            _allExpectedProperties.UnionWith(_expectedOcrProperties);
+            _allExpectedProperties.UnionWith(_expectedDebugProperties);
+            _allExpectedProperties.UnionWith(_expectedMonitoringProperties);
+            _allExpectedProperties.UnionWith(_expectedAlertProperties);
+            _allExpectedProperties.UnionWith(_expectedImageQualityProperties);
+            _allExpectedProperties.UnionWith(_expectedSystemProperties);
         }
 
         /// <summary>
