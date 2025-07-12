@@ -15,7 +15,7 @@ Your Azure IoT Hub device twin is **perfectly configured** with all camera setti
 {
   "cameraBrightness": 50,
   "cameraContrast": 10,
-  "cameraDebugImagePath": "/home/pi/wellmonitor/debug_images",
+  "cameraDebugImagePath": "debug_images",
   "cameraEnablePreview": false,
   "cameraHeight": 1080,
   "cameraQuality": 95,
@@ -100,7 +100,7 @@ az iot hub device-twin update \
 az iot hub device-twin update \
   --device-id rpi4b-1407well01 \
   --hub-name your-iot-hub-name \
-  --set properties.desired.cameraDebugImagePath="/home/pi/wellmonitor/debug_images"
+  --set properties.desired.cameraDebugImagePath="debug_images"
 ```
 
 ### **Step 4: Verify Configuration Updates**
@@ -129,9 +129,9 @@ info: WellMonitor.Device.Services.DependencyValidationService[0]
 4. **Rotation**: Test 0, 90, 180, 270 for camera mounting position
 
 ### **Debug Images Testing:**
-1. Enable debug images: `"cameraDebugImagePath": "/home/pi/wellmonitor/debug_images"`
+1. Enable debug images: `"cameraDebugImagePath": "debug_images"`
 2. Run application for a few monitoring cycles
-3. Check for saved images: `ls -la /home/pi/wellmonitor/debug_images/`
+3. Check for saved images: `ls -la debug_images/`
 4. Analyze image quality for OCR processing
 
 ### **Performance Testing:**

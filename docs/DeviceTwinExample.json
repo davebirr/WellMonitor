@@ -20,7 +20,7 @@
       "cameraContrast": 10,
       "cameraSaturation": 0,
       "cameraEnablePreview": false,
-      "cameraDebugImagePath": "/home/pi/wellmonitor/debug_images",
+      "cameraDebugImagePath": "debug_images",
       "ocrProvider": "Tesseract",
       "ocrMinimumConfidence": 0.7,
       "ocrTesseractLanguage": "eng",
@@ -51,6 +51,26 @@
       "telemetryIntervalMinutes": 5,
       "syncIntervalHours": 1,
       "dataRetentionDays": 30,
+      "pumpCurrentThresholds": {
+        "offCurrentThreshold": 0.1,
+        "idleCurrentThreshold": 0.5,
+        "normalCurrentMin": 3.0,
+        "normalCurrentMax": 8.0,
+        "maxValidCurrent": 25.0,
+        "highCurrentThreshold": 20.0
+      },
+      "powerManagement": {
+        "enableAutoActions": true,
+        "powerCycleDelaySeconds": 5,
+        "minimumCycleIntervalMinutes": 30,
+        "maxDailyCycles": 10,
+        "enableDryConditionCycling": false
+      },
+      "statusDetection": {
+        "dryKeywords": ["Dry", "No Water", "Empty", "Well Dry"],
+        "rapidCycleKeywords": ["rcyc", "Rapid Cycle", "Cycling", "Fault", "Error"],
+        "statusMessageCaseSensitive": false
+      },
       "ocrMaxRetryAttempts": 3,
       "ocrTimeoutSeconds": 30,
       "ocrEnablePreprocessing": true,

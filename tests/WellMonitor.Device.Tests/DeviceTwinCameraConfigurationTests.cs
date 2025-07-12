@@ -24,7 +24,7 @@ namespace WellMonitor.Device.Tests
             // Camera settings from actual device twin
             twin.Properties.Desired["cameraBrightness"] = 50;
             twin.Properties.Desired["cameraContrast"] = 10;
-            twin.Properties.Desired["cameraDebugImagePath"] = "/home/pi/wellmonitor/debug_images";
+            twin.Properties.Desired["cameraDebugImagePath"] = "debug_images";
             twin.Properties.Desired["cameraEnablePreview"] = false;
             twin.Properties.Desired["cameraHeight"] = 1080;
             twin.Properties.Desired["cameraQuality"] = 95;
@@ -72,7 +72,7 @@ namespace WellMonitor.Device.Tests
             Assert.Equal(10, cameraOptions.Contrast);
             Assert.Equal(0, cameraOptions.Saturation);
             Assert.False(cameraOptions.EnablePreview);
-            Assert.Equal("/home/pi/wellmonitor/debug_images", cameraOptions.DebugImagePath);
+            Assert.Equal("debug_images", cameraOptions.DebugImagePath);
             
             // Assert - Verify other settings were also loaded
             Assert.Equal(4.5, result.CurrentThreshold);

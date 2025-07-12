@@ -65,7 +65,7 @@ Based on your Azure IoT Hub device twin for `rpi4b-1407well01`:
     "desired": {
       "cameraBrightness": 50,
       "cameraContrast": 10,
-      "cameraDebugImagePath": "/home/pi/wellmonitor/debug_images",
+      "cameraDebugImagePath": "debug_images",
       "cameraEnablePreview": false,
       "cameraHeight": 1080,
       "cameraQuality": 95,

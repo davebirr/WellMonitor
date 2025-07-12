@@ -11,6 +11,9 @@ namespace WellMonitor.Device.Services
     {
         Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger);
         Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
+        Task<PumpAnalysisOptions> FetchPumpAnalysisConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
+        Task<PowerManagementOptions> FetchPowerManagementConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
+        Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task ReportOcrStatusAsync(DeviceClient deviceClient, IOcrService ocrService, ILogger logger);
     }
 
@@ -390,6 +393,153 @@ namespace WellMonitor.Device.Services
                 return new DebugOptions();
             }
         }
+
+        /// <summary>
+        /// Fetch and apply pump analysis configuration from device twin
+        /// </summary>
+        public async Task<PumpAnalysisOptions> FetchPumpAnalysisConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        {
+            try
+            {
+                var twin = await deviceClient.GetTwinAsync();
+                var desired = twin.Properties.Desired;
+                var options = new PumpAnalysisOptions();
+
+                if (desired.Contains("pumpCurrentThresholds"))
+                {
+                    var thresholds = desired["pumpCurrentThresholds"];
+                    
+                    if (thresholds.Contains("offCurrentThreshold"))
+                        options.OffCurrentThreshold = (double)thresholds["offCurrentThreshold"];
+                    
+                    if (thresholds.Contains("idleCurrentThreshold"))
+                        options.IdleCurrentThreshold = (double)thresholds["idleCurrentThreshold"];
+                    
+                    if (thresholds.Contains("normalCurrentMin"))
+                        options.NormalCurrentMin = (double)thresholds["normalCurrentMin"];
+                    
+                    if (thresholds.Contains("normalCurrentMax"))
+                        options.NormalCurrentMax = (double)thresholds["normalCurrentMax"];
+                    
+                    if (thresholds.Contains("maxValidCurrent"))
+                        options.MaxValidCurrent = (double)thresholds["maxValidCurrent"];
+                    
+                    if (thresholds.Contains("highCurrentThreshold"))
+                        options.HighCurrentThreshold = (double)thresholds["highCurrentThreshold"];
+
+                    logger.LogInformation("Pump analysis configuration updated from device twin: Off={Off}A, Idle={Idle}A, Normal={Min}-{Max}A", 
+                        options.OffCurrentThreshold, options.IdleCurrentThreshold, options.NormalCurrentMin, options.NormalCurrentMax);
+                }
+                else
+                {
+                    logger.LogDebug("No pump current thresholds found in device twin, using defaults");
+                }
+
+                return options;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error fetching pump analysis configuration from device twin");
+                return new PumpAnalysisOptions(); // Return defaults on error
+            }
+        }
+
+        /// <summary>
+        /// Fetch and apply power management configuration from device twin
+        /// </summary>
+        public async Task<PowerManagementOptions> FetchPowerManagementConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        {
+            try
+            {
+                var twin = await deviceClient.GetTwinAsync();
+                var desired = twin.Properties.Desired;
+                var options = new PowerManagementOptions();
+
+                if (desired.Contains("powerManagement"))
+                {
+                    var powerMgmt = desired["powerManagement"];
+                    
+                    if (powerMgmt.Contains("enableAutoActions"))
+                        options.EnableAutoActions = (bool)powerMgmt["enableAutoActions"];
+                    
+                    if (powerMgmt.Contains("powerCycleDelaySeconds"))
+                        options.PowerCycleDelaySeconds = (int)powerMgmt["powerCycleDelaySeconds"];
+                    
+                    if (powerMgmt.Contains("minimumCycleIntervalMinutes"))
+                        options.MinimumCycleIntervalMinutes = (int)powerMgmt["minimumCycleIntervalMinutes"];
+                    
+                    if (powerMgmt.Contains("maxDailyCycles"))
+                        options.MaxDailyCycles = (int)powerMgmt["maxDailyCycles"];
+                    
+                    if (powerMgmt.Contains("enableDryConditionCycling"))
+                        options.EnableDryConditionCycling = (bool)powerMgmt["enableDryConditionCycling"];
+
+                    logger.LogInformation("Power management configuration updated from device twin: AutoActions={Auto}, CycleDelay={Delay}s, MinInterval={Interval}min", 
+                        options.EnableAutoActions, options.PowerCycleDelaySeconds, options.MinimumCycleIntervalMinutes);
+                }
+                else
+                {
+                    logger.LogDebug("No power management configuration found in device twin, using defaults");
+                }
+
+                return options;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error fetching power management configuration from device twin");
+                return new PowerManagementOptions(); // Return defaults on error
+            }
+        }
+
+        /// <summary>
+        /// Fetch and apply status detection configuration from device twin
+        /// </summary>
+        public async Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        {
+            try
+            {
+                var twin = await deviceClient.GetTwinAsync();
+                var desired = twin.Properties.Desired;
+                var options = new StatusDetectionOptions();
+
+                if (desired.Contains("statusDetection"))
+                {
+                    var statusDetection = desired["statusDetection"];
+                    
+                    if (statusDetection.Contains("dryKeywords"))
+                    {
+                        var dryKeywords = statusDetection["dryKeywords"] as object[];
+                        if (dryKeywords != null)
+                            options.DryKeywords = dryKeywords.Cast<string>().ToArray();
+                    }
+                    
+                    if (statusDetection.Contains("rapidCycleKeywords"))
+                    {
+                        var rcycKeywords = statusDetection["rapidCycleKeywords"] as object[];
+                        if (rcycKeywords != null)
+                            options.RapidCycleKeywords = rcycKeywords.Cast<string>().ToArray();
+                    }
+                    
+                    if (statusDetection.Contains("statusMessageCaseSensitive"))
+                        options.StatusMessageCaseSensitive = (bool)statusDetection["statusMessageCaseSensitive"];
+
+                    logger.LogInformation("Status detection configuration updated from device twin: DryKeywords={DryCount}, RcycKeywords={RcycCount}, CaseSensitive={CaseSensitive}", 
+                        options.DryKeywords.Length, options.RapidCycleKeywords.Length, options.StatusMessageCaseSensitive);
+                }
+                else
+                {
+                    logger.LogDebug("No status detection configuration found in device twin, using defaults");
+                }
+
+                return options;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error fetching status detection configuration from device twin");
+                return new StatusDetectionOptions(); // Return defaults on error
+            }
+        }
+
     }
 
     public class DeviceTwinConfig

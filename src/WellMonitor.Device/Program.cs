@@ -65,6 +65,9 @@ var host = Host.CreateDefaultBuilder(args)
         // Register OCR services
         RegisterOcrServices(services, context.Configuration);
         
+        // Register pump analysis service
+        services.AddSingleton<PumpStatusAnalyzer>();
+        
         // Register secrets service based on environment
         RegisterSecretsService(services, context.Configuration);
 
@@ -165,6 +168,9 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     
     // Register dynamic OCR service for device twin configuration
     services.AddSingleton<IDynamicOcrService, DynamicOcrService>();
+    
+    // Register pump status analyzer for interpreting OCR results
+    services.AddSingleton<PumpStatusAnalyzer>();
     
     // Register OCR testing service
     services.AddSingleton<OcrTestingService>();

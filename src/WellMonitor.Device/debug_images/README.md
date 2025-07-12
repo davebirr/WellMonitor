@@ -12,7 +12,6 @@ debug_images/
 │   ├── dry/           # Pump running but well is dry ("Dry" message)
 │   ├── rcyc/          # Pump cycling rapidly ("rcyc" message)
 │   ├── off/           # No power to pump (dark/blank display)
-│   └── live/          # Current live images from camera
 └── pump_reading_*.jpg # Live debug images with timestamps
 ```
 

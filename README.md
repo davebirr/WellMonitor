@@ -4,16 +4,16 @@ This project is a .NET 8 application written in C# for the Raspberry Pi 4B. It m
 
 ## Features
 
-- **🎯 Dual OCR Engine Support**: Tesseract OCR (offline) and Azure Cognitive Services (cloud) with automatic fallback
-- **📱 Dynamic Configuration**: Remote OCR provider switching via Azure IoT Hub device twin
-- **📷 Image Processing**: Captures images of the well pump's current display using a camera
-- **🔍 Advanced OCR**: Extracts current readings and status messages from LED displays
-- **⚡ Energy Monitoring**: Calculates energy consumption (kWh) per hour, day, and month
-- **🚨 Abnormal State Detection**: Detects 'Dry' (low current) and 'rcyc' (rapid cycling) conditions
-- **🔧 Automated Control**: Controls relay via GPIO to cycle power when 'rcyc' is detected
-- **☁️ Azure IoT Integration**: Sends telemetry and receives commands via Azure IoT Hub
-- **📱 PowerApp Integration**: Allows tenants to monitor status and manually cycle power
-- **📊 Comprehensive Logging**: Local SQLite database with cloud synchronization
+- **🎯 Complete OCR Integration**: Dual OCR engine support with intelligent pump monitoring
+- **📱 Enterprise Configuration**: 39 configurable parameters via Azure IoT Hub device twin
+- **📷 Intelligent Monitoring**: Automated image capture and pump status analysis every 30 seconds
+- **🔍 Advanced OCR**: Extracts current readings from LED displays with confidence scoring
+- **⚡ Safety Controls**: Automatic power cycling for rapid cycling with protection intervals
+- **🚨 Condition Detection**: Detects 'Dry', 'Rapid Cycling', 'Normal', 'Idle', and 'Off' states
+- **🔧 GPIO Control**: Relay management with debounce protection and audit logging
+- **☁️ Azure IoT Integration**: Comprehensive telemetry and device twin configuration
+- **📱 PowerApp Ready**: Framework prepared for tenant monitoring interface
+- **📊 Enterprise Logging**: Local SQLite with comprehensive audit trails and sync strategy
 
 
 ## Project Structure
@@ -22,15 +22,16 @@ This project is a .NET 8 application written in C# for the Raspberry Pi 4B. It m
 ```
 wellmonitor/
 ├── docs/                          # Documentation and setup guides
+│   ├── OCR-Monitoring-Integration.md # Complete OCR implementation guide
 │   ├── DataLoggingAndSync.md      # Data logging & sync strategy
 │   ├── DataModel.md               # Data model and schema
-│   ├── OCR-Implementation.md      # Comprehensive OCR documentation
+│   ├── DeviceTwinExtendedConfiguration.md # 39-parameter configuration guide
 │   ├── SecretsManagement.md       # Secure secrets management guide
 │   └── RaspberryPiDeploymentGuide.md # Pi deployment instructions
 ├── src/
 │   ├── WellMonitor.Device/        # Main device app (Raspberry Pi)
-│   │   ├── Services/              # OCR, Camera, GPIO, Database services
-│   │   ├── Models/                # Configuration and data models
+│   │   ├── Services/              # OCR, Camera, GPIO, Database, Monitoring services
+│   │   ├── Models/                # Configuration and data models (39 parameters)
 │   │   └── Controllers/           # API controllers
 │   ├── WellMonitor.Shared/        # Shared DTOs, models, utilities
 │   └── WellMonitor.AzureFunctions/# Azure Functions for PowerApp integration
@@ -40,6 +41,43 @@ wellmonitor/
 └── ...
 ```
 
+## 🚀 Quick Start
+
+### **1. OCR Integration Status: ✅ COMPLETE**
+
+The complete OCR monitoring integration is ready for testing! See [docs/OCR-Monitoring-Integration.md](docs/OCR-Monitoring-Integration.md) for detailed implementation guide.
+
+### **2. Raspberry Pi Camera Setup**
+
+To test with real pump images:
+
+```bash
+# Enable camera interface
+sudo raspi-config
+# Navigate to Interface Options → Camera → Enable
+
+# Install camera dependencies
+sudo apt update
+sudo apt install -y libcamera-apps
+
+# Test camera capture
+libcamera-still -o test_image.jpg --width 1920 --height 1080
+
+# Position camera to view your pump's LED display
+# Ensure good lighting and clear view of current readings
+```
+
+### **3. Deploy and Test**
+
+```bash
+# Build and deploy
+cd src/WellMonitor.Device
+dotnet publish -c Release -o /home/pi/wellmonitor
+sudo systemctl restart wellmonitor
+
+# Monitor live OCR processing
+sudo journalctl -u wellmonitor -f | grep -E "(OCR|Reading|Status)"
+```
 
 ## Data Logging & Sync Strategy
 

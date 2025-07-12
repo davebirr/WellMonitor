@@ -62,7 +62,7 @@ if [ $? -eq 0 ]; then
     echo "  - Warmup: 2000ms"
     echo "  - Saturation: 0"
     echo "  - Preview: disabled"
-    echo "  - Debug Path: /home/pi/wellmonitor/debug_images"
+    echo "  - Debug Path: debug_images"
     echo ""
     echo "Expected well monitor settings from your device twin:"
     echo "  - Current Threshold: 4.5A"

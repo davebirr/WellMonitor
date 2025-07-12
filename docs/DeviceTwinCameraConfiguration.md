@@ -31,7 +31,7 @@ The camera service now supports dynamic configuration through Azure IoT Hub Devi
       "cameraContrast": 10,
       "cameraSaturation": 0,
       "cameraEnablePreview": false,
-      "cameraDebugImagePath": "/home/pi/wellmonitor/debug_images"
+      "cameraDebugImagePath": "debug_images"
     }
   }
 }
@@ -71,7 +71,7 @@ The camera service now supports dynamic configuration through Azure IoT Hub Devi
       "cameraQuality": 100,
       "cameraBrightness": 60,
       "cameraContrast": 15,
-      "cameraDebugImagePath": "/home/pi/wellmonitor/debug_images"
+      "cameraDebugImagePath": "debug_images"
     }
   }
 }
