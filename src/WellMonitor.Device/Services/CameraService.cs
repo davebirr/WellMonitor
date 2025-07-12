@@ -204,6 +204,38 @@ namespace WellMonitor.Device.Services
                 args.Add((_cameraOptions.Saturation / 100.0).ToString("F2"));
             }
 
+            // Add gain/ISO for low light situations
+            if (_cameraOptions.Gain > 1.0)
+            {
+                args.Add("--gain");
+                args.Add(_cameraOptions.Gain.ToString("F1"));
+                _logger.LogDebug("Using high gain for low light: {Gain}", _cameraOptions.Gain);
+            }
+
+            // Add shutter speed for low light (manual exposure)
+            if (_cameraOptions.ShutterSpeedMicroseconds > 0)
+            {
+                args.Add("--shutter");
+                args.Add(_cameraOptions.ShutterSpeedMicroseconds.ToString());
+                _logger.LogDebug("Using manual shutter speed: {ShutterSpeed}μs", _cameraOptions.ShutterSpeedMicroseconds);
+            }
+
+            // Disable auto exposure if manual shutter is set
+            if (_cameraOptions.ShutterSpeedMicroseconds > 0 || !_cameraOptions.AutoExposure)
+            {
+                args.Add("--exposure");
+                args.Add("off");
+                _logger.LogDebug("Auto exposure disabled for manual control");
+            }
+
+            // Disable auto white balance if specified (useful for LED color consistency)
+            if (!_cameraOptions.AutoWhiteBalance)
+            {
+                args.Add("--awb");
+                args.Add("off");
+                _logger.LogDebug("Auto white balance disabled for consistent LED colors");
+            }
+
             // Disable preview unless explicitly enabled
             if (!_cameraOptions.EnablePreview)
             {

@@ -59,5 +59,25 @@ namespace WellMonitor.Device.Models
         /// Camera saturation (-100 to 100)
         /// </summary>
         public int Saturation { get; set; } = 0;
+
+        /// <summary>
+        /// Camera gain/ISO sensitivity (1.0-64.0, higher for low light)
+        /// </summary>
+        public double Gain { get; set; } = 1.0;
+
+        /// <summary>
+        /// Shutter speed in microseconds (for low light, try 50000-200000)
+        /// </summary>
+        public int ShutterSpeedMicroseconds { get; set; } = 0;
+
+        /// <summary>
+        /// Enable/disable automatic exposure
+        /// </summary>
+        public bool AutoExposure { get; set; } = true;
+
+        /// <summary>
+        /// Enable/disable automatic white balance
+        /// </summary>
+        public bool AutoWhiteBalance { get; set; } = true;
     }
 }

@@ -16,6 +16,11 @@ echo "Script permissions fixed:"
 ls -la "$SCRIPT_DIR"/*.sh
 
 echo ""
-echo "You can now run scripts like:"
+echo "Scripts are now executable. You can run:"
 echo "  ./scripts/diagnose-debug-image-path.sh"
-echo "  ./scripts/update-debug-image-path.sh"
+echo "  ./scripts/update-debug-image-path.sh" 
+echo "  ./scripts/deploy-to-pi.sh"
+echo "  ./scripts/test-ocr.sh"
+echo ""
+echo "To automatically fix permissions after every git pull, add this to your .bashrc:"
+echo "alias git-pull='git pull && ./scripts/fix-script-permissions.sh'"
