@@ -73,7 +73,10 @@ namespace WellMonitor.Device.Services
                 }
                 else
                 {
-                    throw; // Fail fast if hardware initialization fails in production
+                    // In production, allow continuation if at least camera and GPIO work
+                    // OCR failures shouldn't prevent the device from running basic monitoring
+                    _logger.LogWarning("Production mode: Continuing with limited OCR functionality");
+                    _logger.LogWarning("Application will run with reduced OCR capabilities");
                 }
             }
         }
@@ -164,7 +167,9 @@ namespace WellMonitor.Device.Services
 
                 if (successfulProviders.Count == 0)
                 {
-                    throw new InvalidOperationException("No OCR providers were successfully initialized");
+                    _logger.LogWarning("No OCR providers were successfully initialized - continuing with limited functionality");
+                    _logger.LogWarning("The application will capture images but OCR text extraction will be unavailable");
+                    return; // Don't throw - allow application to continue without OCR
                 }
 
                 if (failedProviders.Count > 0)
