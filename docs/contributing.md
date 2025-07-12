@@ -210,7 +210,8 @@ If you get "az: The term 'az' is not recognized" errors:
 ### Camera Development
 - Use debug images in `debug_images/` folder for OCR development
 - LED optimization scripts are available for dark basement environments
+- Debug images are **local only** - they stay on the Pi and are not committed to repository
 - Check device twin settings with Azure CLI: `az iot hub device-twin show --hub-name YourHub --device-id YourDevice`
-
+- Transfer debug images using WinSCP, rsync, or similar tools for analysis on development machine
 ---
 Happy contributing!
