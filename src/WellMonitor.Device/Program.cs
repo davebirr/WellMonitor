@@ -142,24 +142,12 @@ logger.LogInformation("Startup process: Dependencies → Hardware → Background
 // The Host.RunAsync() method will start all hosted services in the correct order
 await host.RunAsync();
 
-// Helper method to register the appropriate secrets service
+// Helper method to register the secrets service
 static void RegisterSecretsService(IServiceCollection services, IConfiguration configuration)
 {
-    var secretsMode = configuration["SecretsMode"] ?? Environment.GetEnvironmentVariable("WELLMONITOR_SECRETS_MODE") ?? "hybrid";
-    
-    switch (secretsMode.ToLowerInvariant())
-    {
-        case "keyvault":
-            services.AddSingleton<ISecretsService, KeyVaultSecretsService>();
-            break;
-        case "environment":
-            services.AddSingleton<ISecretsService, EnvironmentSecretsService>();
-            break;
-        case "hybrid":
-        default:
-            services.AddSingleton<ISecretsService, HybridSecretsService>();
-            break;
-    }
+    // Use simplified secrets service that handles .env files and environment variables
+    // This replaces the complex KeyVault/Environment/Hybrid setup since we now use .env files only
+    services.AddSingleton<ISecretsService, SimplifiedSecretsService>();
 }
 
 // Helper method to register Debug options with runtime configuration

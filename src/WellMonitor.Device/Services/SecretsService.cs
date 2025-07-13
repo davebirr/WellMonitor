@@ -2,6 +2,10 @@ using Microsoft.Extensions.Configuration;
 
 namespace WellMonitor.Device.Services
 {
+    /// <summary>
+    /// Interface for secrets management services
+    /// Implementation is now SimplifiedSecretsService for .env file support
+    /// </summary>
     public interface ISecretsService
     {
         Task<string?> GetIotHubConnectionStringAsync();
@@ -11,9 +15,15 @@ namespace WellMonitor.Device.Services
         Task<string?> GetOcrApiKeyAsync();
     }
 
+    /// <summary>
+    /// Legacy basic secrets service - replaced by SimplifiedSecretsService
+    /// Kept for compatibility but should not be used in new code
+    /// </summary>
+    [Obsolete("Use SimplifiedSecretsService instead - this class is kept for compatibility only")]
     public class SecretsService : ISecretsService
     {
         private readonly IConfiguration _configuration;
+        
         public SecretsService(IConfiguration configuration)
         {
             _configuration = configuration;

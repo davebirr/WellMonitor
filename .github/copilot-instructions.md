@@ -32,6 +32,17 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 - Use POCOs
 - Use DTOs
 
+## Configuration Management
+
+- **Environment Variables**: Use `.env` files for local development and environment variables for production
+- **No secrets.json**: Project has migrated away from secrets.json to more secure environment variable approach
+- **Configuration Sources**: 
+  - `.env` file for local development (not committed to git)
+  - Environment variables for production deployment on Raspberry Pi
+  - Azure IoT Hub device twin for runtime configuration updates
+- **Security**: Sensitive values never committed to version control
+- **Standard Practice**: Follows industry standards for configuration management
+
 ## Azure Integration
 
 - Use Azure IoT SDK for device communication.
@@ -41,6 +52,15 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 
 ## Device Twin Configuration
 
+- **Property Name Mapping**: Device twin properties must match exact names in Options classes (e.g., `CameraOptions.cs`)
+  - Use `Camera.Gain` not `cameraGain` in device twin
+  - Use `Camera.ShutterSpeedMicroseconds` not `cameraShutterSpeedMicroseconds`
+  - Always verify property names against actual model classes
+- **LED Environment Optimization**: Camera settings optimized for red 7-segment LED displays
+  - Low gain values (0.5-2.0) to prevent overexposure
+  - Fast shutter speeds (5000-10000 microseconds) for crisp digit capture
+  - Disabled auto-exposure and auto-white-balance for consistent results
+
 - **Comprehensive Remote Configuration**: All major settings configurable via Azure IoT Hub device twin
 - **39 Configuration Parameters**: Camera settings (11), OCR settings (15+), monitoring intervals (4), image quality (5), alert thresholds (4), debug options (5)
 - **Hot Configuration Changes**: Device twin updates apply without service restart via `DeviceTwinService`
@@ -48,9 +68,10 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 - **Relative Path Support**: Use relative paths (e.g., `debug_images`) instead of absolute paths for portability
 - **Configuration Models**: Use dedicated option classes like `CameraOptions`, `OcrOptions`, `MonitoringOptions`, `ImageQualityOptions`, `AlertOptions`, `DebugOptions`
 - **Device Twin Files**: 
-  - `docs/DeviceTwinExample.json` - Complete device twin configuration example
-  - `scripts/Update-DeviceTwinOCR.ps1` - OCR configuration script
-  - `Update-ExtendedDeviceTwin.ps1` - Extended configuration script
+  - `docs/deployment/device-twin-configuration.md` - Complete device twin configuration guide
+  - `scripts/diagnostics/fix-camera-property-names.ps1` - Camera property name correction script
+  - `scripts/configuration/update-device-twin.ps1` - Consolidated device twin update script
+  - `scripts/diagnostics/troubleshoot-device-twin-sync.sh` - Pi-side device twin diagnostics
 
 ## OCR and Image Processing
 
@@ -118,10 +139,12 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 - `src/WellMonitor.Device/Models/DebugOptions.cs` - Debug and logging settings
 
 ### Documentation
-- `docs/DeviceTwinExample.json` - Complete device twin configuration
-- `docs/DeviceTwinExtendedConfiguration.md` - Extended configuration guide
-- `docs/DataLoggingAndSync.md` - Data strategy documentation
-- `src/WellMonitor.Device/debug_images/README.md` - Debug image organization
+- `docs/deployment/` - Organized deployment guides and device twin configuration
+- `docs/configuration/` - Configuration management and environment setup
+- `docs/development/` - Development workflow and testing guides
+- `docs/reference/` - Reference documentation and troubleshooting
+- `scripts/diagnostics/` - Device diagnostics and troubleshooting tools
+- `scripts/configuration/` - Configuration management and device twin updates
 
 ## Development & Testing
 
@@ -136,6 +159,8 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 - Test configuration changes without service restart
 - Validate all settings with `ConfigurationValidationService`
 - Use relative paths for portability across environments
+- **Property Name Validation**: Always verify device twin property names match Option class properties
+- **Camera LED Optimization**: Test camera settings in actual LED environment, not bright room conditions
 
 ### Enterprise Requirements
 - **High Reliability**: Dual OCR providers with automatic fallback
@@ -143,3 +168,22 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 - **Scalability**: Designed for utility company deployments with multiple devices
 - **Monitoring**: Comprehensive statistics and diagnostics
 - **Compliance**: Enterprise-grade logging and audit trails
+
+## Common Issues & Solutions
+
+### Device Twin Property Mapping
+- **Issue**: Device twin properties not recognized by application
+- **Cause**: Property names in device twin don't match Option class property names
+- **Solution**: Use exact property names from Option classes (e.g., `Camera.Gain` not `cameraGain`)
+- **Prevention**: Always validate property names against source code before device twin updates
+
+### Camera Overexposure in LED Environment
+- **Issue**: Debug images appear completely white when monitoring red LED displays
+- **Cause**: Camera settings optimized for normal lighting, not bright LED environment
+- **Solution**: Reduce gain (0.5-2.0), use fast shutter speeds (5000-10000 μs), disable auto-exposure
+- **Prevention**: Test camera settings in actual deployment environment, not development lighting
+
+### Configuration Management
+- **Issue**: Configuration scattered across multiple files and approaches
+- **Solution**: Standardize on environment variables and .env files, eliminate secrets.json
+- **Best Practice**: Use `.env` for development, environment variables for production, device twin for runtime updates
