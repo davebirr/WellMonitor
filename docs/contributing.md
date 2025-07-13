@@ -32,6 +32,8 @@ Thank you for your interest in contributing to WellMonitor! This document provid
    cd WellMonitor
    ```
 
+   **Note:** If you're using WSL and need GitHub authentication, see the [GitHub Authentication Setup](development/development-setup.md#github-authentication-setup) section in the development setup guide.
+
 2. **Set up environment variables:**
    ```bash
    cp .env.example .env

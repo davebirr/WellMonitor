@@ -149,6 +149,59 @@ ssh-copy-id pi@raspberrypi.local
 ssh pi@raspberrypi.local "echo 'Connection successful!'"
 ```
 
+### GitHub Authentication Setup
+
+**Option 1: SSH Key Authentication (Recommended):**
+```bash
+# Generate SSH key for GitHub (if you don't already have one)
+ssh-keygen -t ed25519 -C "your-email@example.com" -f ~/.ssh/id_ed25519_github
+
+# Add SSH key to SSH agent
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519_github
+
+# Display public key to copy to GitHub
+cat ~/.ssh/id_ed25519_github.pub
+
+# Configure Git to use SSH
+git config --global url."git@github.com:".insteadOf "https://github.com/"
+```
+
+**Add the public key to GitHub:**
+1. Go to GitHub → Settings → SSH and GPG keys
+2. Click "New SSH key"
+3. Paste the public key content
+4. Test: `ssh -T git@github.com`
+
+**Option 2: GitHub CLI with Device Flow:**
+```bash
+# Install GitHub CLI
+sudo apt update
+sudo apt install gh
+
+# Authenticate using device flow (works great in WSL)
+gh auth login
+
+# Select:
+# - GitHub.com
+# - HTTPS
+# - Yes (authenticate Git with GitHub credentials)
+# - Login with a web browser
+
+# Follow the device flow instructions
+```
+
+**Option 3: Personal Access Token:**
+```bash
+# Configure Git with your username
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+
+# When prompted for password, use Personal Access Token
+# Create token at: GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+# Required scopes: repo, workflow
+```
+
 ### Troubleshooting WSL
 
 **Common Issues:**

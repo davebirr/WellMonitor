@@ -71,18 +71,71 @@ else
     echo "✅ Git already configured for: $(git config --global user.name)"
 fi
 
-# Check if SSH key exists
-if [ ! -f ~/.ssh/id_ed25519 ]; then
-    echo "🔐 Generating SSH key for Pi access..."
-    read -p "Enter your email for SSH key: " ssh_email
-    ssh-keygen -t ed25519 -C "$ssh_email" -f ~/.ssh/id_ed25519 -N ""
-    echo "✅ SSH key generated"
+# Setup GitHub authentication
+echo "🔐 Setting up GitHub authentication..."
+echo "Choose GitHub authentication method:"
+echo "1. SSH Key (Recommended)"
+echo "2. GitHub CLI with Device Flow"
+echo "3. Skip (configure manually later)"
+read -p "Enter choice [1-3]: " github_auth_choice
+
+case $github_auth_choice in
+    1)
+        if [ ! -f ~/.ssh/id_ed25519 ]; then
+            echo "🔑 Generating SSH key for GitHub..."
+            read -p "Enter your email for SSH key: " ssh_email
+            ssh-keygen -t ed25519 -C "$ssh_email" -f ~/.ssh/id_ed25519 -N ""
+            
+            # Start SSH agent and add key
+            eval "$(ssh-agent -s)" > /dev/null 2>&1
+            ssh-add ~/.ssh/id_ed25519 > /dev/null 2>&1
+            
+            echo "✅ SSH key generated"
+            echo ""
+            echo "📋 Your public key (add this to GitHub):"
+            cat ~/.ssh/id_ed25519.pub
+            echo ""
+            echo "🌐 Add this key to GitHub:"
+            echo "   1. Go to GitHub → Settings → SSH and GPG keys"
+            echo "   2. Click 'New SSH key'"
+            echo "   3. Paste the above public key"
+            echo ""
+            
+            # Configure Git to use SSH
+            git config --global url."git@github.com:".insteadOf "https://github.com/"
+            echo "✅ Git configured to use SSH for GitHub"
+        else
+            echo "✅ SSH key already exists"
+        fi
+        ;;
+    2)
+        echo "📱 Installing GitHub CLI..."
+        sudo apt update > /dev/null 2>&1
+        sudo apt install -y gh > /dev/null 2>&1
+        echo "✅ GitHub CLI installed"
+        echo ""
+        echo "🔐 Run 'gh auth login' after setup completes to authenticate"
+        ;;
+    3)
+        echo "⏭️ Skipping GitHub authentication setup"
+        ;;
+    *)
+        echo "⚠️ Invalid choice, skipping GitHub authentication setup"
+        ;;
+esac
+
+# Check if SSH key exists for Pi access
+if [ ! -f ~/.ssh/id_ed25519_pi ]; then
+    echo "🔐 Generating additional SSH key for Pi access..."
+    read -p "Enter your email for Pi SSH key: " ssh_email
+    ssh-keygen -t ed25519 -C "$ssh_email" -f ~/.ssh/id_ed25519_pi -N ""
+    echo "✅ Pi SSH key generated"
     echo ""
-    echo "📋 Your public key (copy this to your Pi):"
-    cat ~/.ssh/id_ed25519.pub
+    echo "📋 Your Pi public key (copy this to your Pi):"
+    cat ~/.ssh/id_ed25519_pi.pub
     echo ""
     echo "💡 Run this on your Pi to add the key:"
-    echo "   echo '$(cat ~/.ssh/id_ed25519.pub)' >> ~/.ssh/authorized_keys"
+    echo "   echo '$(cat ~/.ssh/id_ed25519_pi.pub)' >> ~/.ssh/authorized_keys"
 else
     echo "✅ SSH key already exists"
 fi
@@ -105,10 +158,20 @@ echo ""
 echo "🎉 WSL Development Environment Setup Complete!"
 echo ""
 echo "📋 Next Steps:"
-echo "1. Clone WellMonitor repository: git clone https://github.com/davebirr/WellMonitor.git"
-echo "2. Configure Pi SSH access: ssh-copy-id pi@raspberrypi.local"
-echo "3. Test connection: ssh pi@raspberrypi.local"
-echo "4. Run installation: cd WellMonitor && ./scripts/installation/install-wellmonitor.sh"
+if [ "$github_auth_choice" = "1" ]; then
+    echo "1. Add SSH key to GitHub (see public key above)"
+    echo "2. Test GitHub access: ssh -T git@github.com"
+    echo "3. Clone WellMonitor repository: git clone git@github.com:davebirr/WellMonitor.git"
+elif [ "$github_auth_choice" = "2" ]; then
+    echo "1. Authenticate with GitHub: gh auth login"
+    echo "2. Clone WellMonitor repository: git clone https://github.com/davebirr/WellMonitor.git"
+else
+    echo "1. Set up GitHub authentication (see docs/development/development-setup.md)"
+    echo "2. Clone WellMonitor repository: git clone https://github.com/davebirr/WellMonitor.git"
+fi
+echo "4. Configure Pi SSH access: ssh-copy-id -i ~/.ssh/id_ed25519_pi pi@raspberrypi.local"
+echo "5. Test Pi connection: ssh -i ~/.ssh/id_ed25519_pi pi@raspberrypi.local"
+echo "6. Run installation: cd WellMonitor && ./scripts/installation/install-wellmonitor.sh"
 echo ""
 echo "🔧 Useful WSL Commands:"
 echo "   explorer.exe .                    # Open current directory in Windows Explorer"
