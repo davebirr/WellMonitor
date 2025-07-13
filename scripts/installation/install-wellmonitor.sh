@@ -270,9 +270,12 @@ ReadOnlyPaths=/etc/wellmonitor
 
 # Device access for GPIO and camera
 DeviceAllow=/dev/gpiochip0 rw
-DeviceAllow=/dev/video0 rw
-DeviceAllow=/dev/video1 rw
-SupplementaryGroups=gpio video
+DeviceAllow=/dev/video* rw
+DeviceAllow=/dev/dma_heap rw
+DeviceAllow=/dev/dma_heap/* rw
+DeviceAllow=/dev/dri rw
+DeviceAllow=/dev/dri/* rw
+SupplementaryGroups=gpio video render
 
 [Install]
 WantedBy=multi-user.target
