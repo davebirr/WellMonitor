@@ -95,13 +95,13 @@ sudo snap install powershell --classic
 ARCH=$(dpkg --print-architecture)
 if [ "$ARCH" = "amd64" ]; then
     # Download latest PowerShell for amd64
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*deb.*amd64" | cut -d '"' -f 4)
+    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*amd64\.deb" | cut -d '"' -f 4)
     sudo dpkg -i powershell.deb
     sudo apt-get install -f  # Fix any dependency issues
     rm powershell.deb
 elif [ "$ARCH" = "arm64" ]; then
-    # Download latest PowerShell for arm64
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*deb.*arm64" | cut -d '"' -f 4)
+    # Download latest PowerShell for arm64  
+    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*arm64\.deb" | cut -d '"' -f 4)
     sudo dpkg -i powershell.deb
     sudo apt-get install -f
     rm powershell.deb
@@ -401,9 +401,9 @@ sudo snap install powershell --classic
 # Method 2: Download latest release automatically (if snap not available)
 ARCH=$(dpkg --print-architecture)
 if [ "$ARCH" = "amd64" ]; then
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*deb.*amd64" | cut -d '"' -f 4)
+    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*amd64\.deb" | cut -d '"' -f 4)
 elif [ "$ARCH" = "arm64" ]; then
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*deb.*arm64" | cut -d '"' -f 4)
+    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*arm64\.deb" | cut -d '"' -f 4)
 fi
 sudo dpkg -i powershell.deb
 sudo apt-get install -f  # Fix any dependency issues
@@ -415,6 +415,11 @@ curl -L https://aka.ms/install-powershell.sh | sudo bash
 # Note: The Microsoft repository from .NET installation may not include PowerShell
 # This is a known issue - the prod repository sometimes doesn't have PowerShell packages
 # Snap installation is the most reliable workaround
+
+# Common issue: wget returns "missing URL" error
+# This happens when the grep pattern doesn't match the actual filename format
+# PowerShell releases use format: powershell_X.Y.Z-1.deb_ARCH.deb
+# Make sure grep pattern matches: ".*amd64\.deb" not ".*deb.*amd64"
 ```
 
 ## Team Configuration
