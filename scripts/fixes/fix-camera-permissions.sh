@@ -62,12 +62,14 @@ ReadOnlyPaths=/etc/wellmonitor
 # Device access for GPIO and camera (expanded for rpicam-apps)
 DeviceAllow=/dev/gpiochip0 rw
 DeviceAllow=/dev/video* rw
+DeviceAllow=/dev/media* rw
 DeviceAllow=/dev/dma_heap rw
 DeviceAllow=/dev/dma_heap/* rw
 DeviceAllow=/dev/dri rw
 DeviceAllow=/dev/dri/* rw
 DeviceAllow=/dev/vchiq rw
 DeviceAllow=/dev/vcio rw
+DeviceAllow=/dev/vcsm-cma rw
 SupplementaryGroups=gpio video render
 
 [Install]
