@@ -8,7 +8,7 @@
     and restarts the service. It also provides status information and monitoring commands.
 
 .PARAMETER DeviceHost
-    IP address or hostname of the Raspberry Pi (default: 192.168.1.48)
+    IP address or hostname of the Raspberry Pi (default: 192.168.7.44)
 
 .PARAMETER DeviceUser
     SSH username for the Raspberry Pi (default: davidb)
@@ -22,7 +22,7 @@
 #>
 
 param(
-    [string]$DeviceHost = "192.168.1.48",
+    [string]$DeviceHost = "192.168.7.44",
     [string]$DeviceUser = "davidb",
     [string]$RemotePath = "/home/davidb/wellmonitor",
     [string]$BuildConfig = "Release"

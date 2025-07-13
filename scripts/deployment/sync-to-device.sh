@@ -4,7 +4,7 @@
 set -e
 
 DEVICE_USER="davidb"
-DEVICE_HOST="192.168.1.48"  # Update with your Pi's IP
+DEVICE_HOST="192.168.7.44"  # Update with your Pi's IP
 REMOTE_PATH="/home/davidb/wellmonitor"
 BUILD_CONFIG="Release"
 
