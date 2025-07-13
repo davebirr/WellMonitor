@@ -6,7 +6,7 @@
 set -e  # Exit on any error
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 DEVICE_PROJECT="$PROJECT_ROOT/src/WellMonitor.Device"
 
 # Colors for output

@@ -33,7 +33,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 DEVICE_PROJECT="$PROJECT_ROOT/src/WellMonitor.Device"
 
 echo -e "${BLUE}📍 Current status:${NC}"
