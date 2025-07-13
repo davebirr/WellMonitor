@@ -38,10 +38,7 @@ var host = Host.CreateDefaultBuilder(args)
         // Load .env file if it exists (for development)
         LoadEnvironmentFile();
         
-        // Add secrets.json file for local testing only
-        config.AddJsonFile("secrets.json", optional: true, reloadOnChange: true);
-        
-        // Add environment variables for production
+        // Add environment variables (primary configuration method)
         config.AddEnvironmentVariables();
     })
     .ConfigureServices((context, services) =>

@@ -61,3 +61,4 @@ TestResults/
 .terraform.lock.hcl
 
 # Ignore any other local-only or sensitive files
+debug_images/

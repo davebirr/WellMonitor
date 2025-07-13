@@ -23,10 +23,10 @@ namespace WellMonitor.Device.Tests
 
         public DeviceTwinCameraConfigurationIntegrationTests()
         {
-            // Build configuration to get real connection string from secrets
+            // Build configuration to get connection string from environment variables or .env file
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("secrets.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables()
                 .Build();
 
             _secretsService = new SecretsService(configuration);

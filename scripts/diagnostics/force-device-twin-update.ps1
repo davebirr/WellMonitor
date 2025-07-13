@@ -68,7 +68,7 @@ if ($deviceStatus.connectionState -eq "Connected") {
     Write-Host "   1. Internet connectivity: ping 8.8.8.8" -ForegroundColor White
     Write-Host "   2. Service status: sudo systemctl status wellmonitor" -ForegroundColor White
     Write-Host "   3. Service logs: sudo journalctl -u wellmonitor --since '5 minutes ago'" -ForegroundColor White
-    Write-Host "   4. Azure IoT connection string in secrets.json" -ForegroundColor White
+    Write-Host "   4. Azure IoT connection string in .env file" -ForegroundColor White
 }
 
 Write-Host "`n📋 Next Steps:" -ForegroundColor Cyan
