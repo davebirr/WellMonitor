@@ -49,6 +49,87 @@ export WELLMONITOR_PI_USERNAME="pi"
 
 ### Method 1: WSL/Linux Environment (Recommended)
 
+**Prerequisites Installation:**
+
+First, install required tools in your WSL environment:
+
+```bash
+# Update package lists
+sudo apt update && sudo apt upgrade -y
+
+# Install basic development tools
+sudo apt install -y curl wget git unzip software-properties-common apt-transport-https lsb-release gnupg
+
+# Install .NET 8 SDK
+wget https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+rm packages-microsoft-prod.deb
+sudo apt update
+sudo apt install -y dotnet-sdk-8.0
+
+# Verify .NET installation
+dotnet --version
+
+# Install Azure CLI
+curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+
+# Verify Azure CLI installation
+az --version
+
+# Install GitHub CLI
+curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+&& sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+&& sudo apt update \
+&& sudo apt install -y gh
+
+# Verify GitHub CLI installation
+gh --version
+
+# Install PowerShell (optional - for running PowerShell scripts)
+wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt update
+sudo apt install -y powershell
+
+# Verify PowerShell installation
+pwsh --version
+```
+
+**Authenticate with Azure and GitHub:**
+```bash
+# Authenticate with Azure CLI
+az login
+# Follow the browser authentication flow
+
+# Set your default subscription (if you have multiple)
+az account set --subscription "Your Subscription Name"
+
+# Verify Azure authentication
+az account show
+
+# Authenticate with GitHub CLI
+gh auth login
+# Select:
+# - GitHub.com
+# - HTTPS or SSH (depending on your preference)
+# - Yes (authenticate Git with GitHub credentials)
+# - Login with a web browser or paste token
+
+# Verify GitHub authentication
+gh auth status
+```
+
+**Configure Git (if not already done):**
+```bash
+# Set your Git identity
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
+
+# Configure Git to use VS Code as editor (optional)
+git config --global core.editor "code --wait"
+```
+
 **Add to your shell profile:**
 ```bash
 # Edit your profile file
@@ -67,6 +148,35 @@ alias pi-status='ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo
 
 # Reload profile
 source ~/.bashrc
+```
+
+**Verify Installation:**
+```bash
+# Test all tools are working
+echo "=== Checking Prerequisites ==="
+echo "✅ .NET SDK: $(dotnet --version)"
+echo "✅ Azure CLI: $(az --version | head -n1)"
+echo "✅ GitHub CLI: $(gh --version | head -n1)"
+echo "✅ PowerShell: $(pwsh --version)"
+echo "✅ Git: $(git --version)"
+
+# Test Azure authentication
+echo "=== Azure Status ==="
+az account show --output table
+
+# Test GitHub authentication  
+echo "=== GitHub Status ==="
+gh auth status
+
+# Test environment variables
+echo "=== Environment Variables ==="
+echo "Pi Hostname: ${WELLMONITOR_PI_HOSTNAME}"
+echo "Pi Username: ${WELLMONITOR_PI_USERNAME}"
+echo "SSH Key Path: ${WELLMONITOR_SSH_KEY_PATH}"
+
+# Test SSH connectivity (if Pi is accessible)
+echo "=== Testing SSH Connection ==="
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "echo 'SSH connection successful!'"
 ```
 
 ### Method 2: Windows PowerShell
@@ -215,6 +325,65 @@ ssh -v ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}
 2. **Verify SSH service**: Pi must have SSH enabled
 3. **Check SSH keys**: Use `ssh-copy-id` to setup key authentication
 4. **Firewall issues**: Ensure port 22 is open
+
+### WSL Prerequisites Issues
+
+**If .NET installation fails:**
+```bash
+# Remove and retry
+sudo apt remove dotnet-sdk-8.0
+sudo apt autoremove
+sudo apt update
+sudo apt install -y dotnet-sdk-8.0
+
+# Alternative: Use Microsoft's install script
+curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0
+export PATH="$HOME/.dotnet:$PATH"
+echo 'export PATH="$HOME/.dotnet:$PATH"' >> ~/.bashrc
+```
+
+**If Azure CLI installation fails:**
+```bash
+# Alternative installation method
+pip3 install azure-cli
+
+# Or using snap
+sudo snap install azure-cli --classic
+```
+
+**If GitHub CLI installation fails:**
+```bash
+# Alternative installation using snap
+sudo snap install gh
+
+# Or download and install manually
+wget https://github.com/cli/cli/releases/latest/download/gh_*_linux_amd64.deb
+sudo dpkg -i gh_*_linux_amd64.deb
+```
+
+**Network/DNS issues in WSL:**
+```bash
+# Reset DNS configuration
+sudo rm /etc/resolv.conf
+sudo bash -c 'echo "nameserver 8.8.8.8" > /etc/resolv.conf'
+sudo bash -c 'echo "nameserver 8.8.4.4" >> /etc/resolv.conf'
+
+# Or use systemd-resolved
+sudo systemctl restart systemd-resolved
+```
+
+**PowerShell not found:**
+```bash
+# Check if PowerShell is installed
+which pwsh
+
+# If not found, try alternative installation
+sudo snap install powershell --classic
+
+# Or download and install manually
+wget https://github.com/PowerShell/PowerShell/releases/latest/download/powershell_*_amd64.deb
+sudo dpkg -i powershell_*_amd64.deb
+```
 
 ## Team Configuration
 
