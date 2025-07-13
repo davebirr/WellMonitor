@@ -196,7 +196,22 @@ if [ -d "$DEVICE_PROJECT/debug_images" ]; then
 fi
 
 # Create environment file (more secure than inline environment variables)
-sudo tee /etc/wellmonitor/environment > /dev/null << 'EOF'
+# Check if environment file already exists and has real values
+if [ -f /etc/wellmonitor/environment ]; then
+    if grep -q "REPLACE_WITH_YOUR_ACTUAL_CONNECTION_STRING\|YourIoTHub\.azure-devices\.net\|YourLocalEncryptionKey32Characters" /etc/wellmonitor/environment; then
+        echo -e "${YELLOW}⚠️  Environment file exists but contains placeholder values${NC}"
+        NEEDS_CONFIG=true
+    else
+        echo -e "${GREEN}✅ Environment file exists with configured values${NC}"
+        NEEDS_CONFIG=false
+    fi
+else
+    NEEDS_CONFIG=true
+fi
+
+if [ "$NEEDS_CONFIG" = true ]; then
+    echo -e "${BLUE}📝 Creating environment file with placeholders...${NC}"
+    sudo tee /etc/wellmonitor/environment > /dev/null << 'EOF'
 ASPNETCORE_ENVIRONMENT=Production
 WELLMONITOR_SECRETS_MODE=environment
 DOTNET_EnableDiagnostics=0
@@ -205,6 +220,7 @@ DOTNET_EnableDiagnostics=0
 WELLMONITOR_IOTHUB_CONNECTION_STRING=REPLACE_WITH_YOUR_ACTUAL_CONNECTION_STRING
 WELLMONITOR_LOCAL_ENCRYPTION_KEY=REPLACE_WITH_32_CHARACTER_ENCRYPTION_KEY
 EOF
+fi
 
 # Secure the environment file
 sudo chown root:davidb /etc/wellmonitor/environment
@@ -320,23 +336,30 @@ echo -e "${GREEN}✅ Security: ProtectSystem=strict (Enabled)${NC}"
 echo ""
 echo -e "${YELLOW}🔧 IMPORTANT: Post-Installation Configuration Required${NC}"
 echo "========================================"
-echo -e "${RED}1. Update Azure IoT Hub Connection String:${NC}"
-echo "   sudo nano /etc/wellmonitor/environment"
-echo "   Replace: WELLMONITOR_IOTHUB_CONNECTION_STRING=..."
-echo "   With your actual Azure IoT Hub connection string"
-echo ""
-echo -e "${RED}2. Update Encryption Key:${NC}"
-echo "   Replace: WELLMONITOR_LOCAL_ENCRYPTION_KEY=..."
-echo "   With a 32-character encryption key"
-echo ""
+if [ "$NEEDS_CONFIG" = true ]; then
+    echo -e "${RED}🚨 CONFIGURATION REQUIRED: Your environment file has placeholder values!${NC}"
+    echo ""
+    echo -e "${RED}1. Update Azure IoT Hub Connection String:${NC}"
+    echo "   sudo nano /etc/wellmonitor/environment"
+    echo "   Replace: WELLMONITOR_IOTHUB_CONNECTION_STRING=..."
+    echo "   With your actual Azure IoT Hub connection string"
+    echo ""
+    echo -e "${RED}2. Update Encryption Key:${NC}"
+    echo "   Replace: WELLMONITOR_LOCAL_ENCRYPTION_KEY=..."
+    echo "   With a 32-character encryption key"
+    echo ""
+    echo -e "${RED}3. Restart service after configuration:${NC}"
+    echo "   sudo systemctl restart wellmonitor"
+    echo ""
+else
+    echo -e "${GREEN}✅ Configuration appears to be set up${NC}"
+    echo ""
+fi
 echo -e "${RED}3. Camera Setup (if camera errors persist):${NC}"
 echo "   Run camera diagnostics: ./scripts/diagnostics/diagnose-camera.sh"
 echo "   Or enable via: sudo raspi-config"
 echo "   → Interface Options → Camera → Enable"
 echo "   → Finish → Reboot"
-echo ""
-echo -e "${RED}4. Restart service after configuration:${NC}"
-echo "   sudo systemctl restart wellmonitor"
 echo ""
 echo -e "${BLUE}📋 Service Management:${NC}"
 echo "  Status:  sudo systemctl status wellmonitor"
