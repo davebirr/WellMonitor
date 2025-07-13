@@ -7,7 +7,9 @@ Complete development environment setup for the WellMonitor .NET application.
 ### Development Machine Requirements
 
 **Operating System:**
-- Windows 10/11 (primary development)
+- **Windows 10/11** (primary development)
+  - **WSL2 with Ubuntu 22.04+ HIGHLY RECOMMENDED** for Raspberry Pi development
+  - Native Windows (compatible but with limitations)
 - Linux (Ubuntu 20.04+) or macOS (alternative)
 
 **Software Requirements:**
@@ -44,19 +46,143 @@ winget install Microsoft.PowerShell
 # Or use existing Windows PowerShell 5.1
 ```
 
-### IDE Setup
+## 🐧 WSL2 Setup (Recommended for Raspberry Pi Development)
 
-**Visual Studio 2022:**
-- Install ".NET Multi-platform App UI development" workload
-- Install "Azure development" workload
-- Install "Data storage and processing" workload
+### Why Use WSL2?
 
-**VS Code Extensions:**
-- C# for Visual Studio Code
-- Azure IoT Tools
-- Azure Account
-- PowerShell
-- SQLite Viewer
+Developing for Raspberry Pi from Windows is **significantly easier** with WSL2 because:
+
+- **Native Linux Environment**: Same OS family as your Raspberry Pi
+- **Better .NET ARM64 Builds**: Linux .NET SDK handles cross-compilation more reliably  
+- **Native SSH/SCP**: No Windows path translation issues
+- **Bash Script Execution**: Run deployment scripts natively without Git Bash quirks
+- **Consistent Package Management**: Use apt, systemctl, and other Linux tools naturally
+
+### WSL2 Installation
+
+**1. Install WSL2 (Run in Administrator PowerShell):**
+```powershell
+# Install WSL2 with Ubuntu 22.04
+wsl --install Ubuntu-22.04
+
+# Reboot when prompted
+```
+
+**2. Initial WSL Setup:**
+```bash
+# After reboot, WSL will start automatically
+# Set up your username and password when prompted
+
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+```
+
+**3. Automated Development Environment Setup:**
+```bash
+# Run the automated setup script
+curl -fsSL https://raw.githubusercontent.com/davebirr/WellMonitor/main/scripts/setup/setup-wsl-dev-environment.sh | bash
+
+# Or clone repository first and run locally
+git clone https://github.com/davebirr/WellMonitor.git
+cd WellMonitor
+./scripts/setup/setup-wsl-dev-environment.sh
+```
+
+### WSL Development Workflow
+
+**1. Open WSL Terminal:**
+- Use Windows Terminal (recommended)
+- Or launch from Start Menu: "Ubuntu 22.04"
+
+**2. Navigate to Project:**
+```bash
+cd ~/WellMonitor  # Your cloned repository
+```
+
+**3. Development Commands:**
+```bash
+# Build for Raspberry Pi
+dotnet build src/WellMonitor.Device/WellMonitor.Device.csproj -c Release -r linux-arm64
+
+# Deploy to Pi (much more reliable than Windows)
+./scripts/installation/install-wellmonitor.sh
+
+# Monitor Pi logs
+ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
+
+# Open VS Code with WSL context
+code .  # Opens project in VS Code with Linux environment
+```
+
+### WSL + VS Code Integration
+
+**Install VS Code Extensions:**
+- **WSL** extension (essential for WSL development)
+- **C#** for Visual Studio Code
+- **Remote - WSL** (often included with WSL extension)
+
+**Open Project in WSL:**
+```bash
+# From WSL terminal
+cd ~/WellMonitor
+code .  # VS Code opens with WSL context automatically
+```
+
+**Benefits:**
+- IntelliSense works with Linux .NET SDK
+- Integrated terminal runs in WSL
+- File paths are native Linux paths
+- Debugging works with Linux runtime
+
+### SSH Configuration for Pi Access
+
+**Generate SSH Key (if needed):**
+```bash
+# Generate SSH key for Pi access
+ssh-keygen -t ed25519 -C "your-email@example.com"
+
+# Copy public key to Pi
+ssh-copy-id pi@raspberrypi.local
+
+# Test connection
+ssh pi@raspberrypi.local "echo 'Connection successful!'"
+```
+
+### Troubleshooting WSL
+
+**Common Issues:**
+1. **WSL2 not starting:**
+   ```powershell
+   # Restart WSL
+   wsl --shutdown
+   wsl
+   ```
+
+2. **Network issues:**
+   ```bash
+   # Reset DNS in WSL
+   sudo rm /etc/resolv.conf
+   sudo bash -c 'echo "nameserver 8.8.8.8" > /etc/resolv.conf'
+   ```
+
+3. **VS Code not detecting WSL:**
+   ```bash
+   # Install code command in WSL
+   code --install-extension ms-vscode-remote.remote-wsl
+   ```
+
+### WSL File System Access
+
+**Access WSL files from Windows:**
+- Open File Explorer
+- Navigate to: `\\wsl$\Ubuntu-22.04\home\{username}\WellMonitor`
+- Or type `explorer.exe .` from WSL terminal
+
+**Access Windows files from WSL:**
+```bash
+# Windows C: drive is mounted at /mnt/c
+cd /mnt/c/Users/{username}/Documents
+```
 
 ## Project Structure
 
@@ -93,7 +219,23 @@ WellMonitor/
 
 ### Clone and Setup
 
+**Option 1: WSL2 (Recommended for Pi Development):**
+```bash
+# In WSL2 terminal
+cd ~
+git clone https://github.com/davebirr/WellMonitor.git
+cd WellMonitor
+
+# Verify .NET installation
+dotnet --version
+
+# Test ARM64 build capability  
+dotnet build src/WellMonitor.Device/WellMonitor.Device.csproj -c Release -r linux-arm64
+```
+
+**Option 2: Windows (Alternative):**
 ```powershell
+# In PowerShell
 # Clone repository
 git clone https://github.com/davebirr/WellMonitor.git
 cd WellMonitor
@@ -483,33 +625,86 @@ jobs:
 
 ## Deployment to Raspberry Pi
 
-### Development Deployment
+### 🎯 Recommended: WSL2 Deployment
 
-**Quick Deployment:**
-```powershell
-# Copy to Pi for testing
-scp -r src/WellMonitor.Device/bin/Release/net8.0/linux-arm64/* pi@raspberry-pi-ip:~/WellMonitor-dev/
+**Complete Installation (Recommended):**
+```bash
+# From WSL2 terminal in project directory
+cd ~/WellMonitor
 
-# Run on Pi
-ssh pi@raspberry-pi-ip
-cd ~/WellMonitor-dev
-./WellMonitor.Device
+# Run the comprehensive installation script
+./scripts/installation/install-wellmonitor.sh
+
+# Monitor installation progress and results
+ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
 ```
 
-**Automated Deployment:**
+**Quick Update Deployment:**
+```bash
+# Build for ARM64
+dotnet publish src/WellMonitor.Device/WellMonitor.Device.csproj \
+  -c Release \
+  -r linux-arm64 \
+  --self-contained \
+  -o /tmp/wellmonitor-build
+
+# Stop service, copy, restart
+ssh pi@raspberrypi.local "sudo systemctl stop wellmonitor"
+scp -r /tmp/wellmonitor-build/* pi@raspberrypi.local:/opt/wellmonitor/
+ssh pi@raspberrypi.local "sudo systemctl start wellmonitor"
+```
+
+### Alternative: Windows Deployment
+
+**Using Git Bash or PowerShell:**
 ```powershell
-# Use deployment script
-.\scripts\Deploy-ToPi.ps1 -PiAddress "192.168.1.100" -Username "pi"
+# Copy installation script to Pi and run remotely
+scp scripts/installation/install-wellmonitor.sh pi@raspberrypi.local:~/
+ssh pi@raspberrypi.local "./install-wellmonitor.sh"
+```
+
+### Deployment Comparison
+
+| **Method** | **Reliability** | **Build Quality** | **Complexity** | **Recommended** |
+|------------|-----------------|-------------------|----------------|-----------------|
+| **WSL2** | ✅ Excellent | ✅ Native Linux build | 🟢 Simple | **Yes** |
+| **Windows** | ⚠️ Good | ⚠️ Cross-platform build | 🟡 Moderate | No |
+
+### Development Workflow Examples
+
+**WSL2 Development Cycle:**
+```bash
+# 1. Make code changes in VS Code (opened with 'code .' from WSL)
+# 2. Test build
+dotnet build src/WellMonitor.Device/WellMonitor.Device.csproj -c Release -r linux-arm64
+
+# 3. Deploy to Pi
+./scripts/installation/install-wellmonitor.sh
+
+# 4. Monitor logs
+ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
+
+# 5. Update camera settings via device twin
+./scripts/diagnostics/fix-camera-property-names.ps1
 ```
 
 ### Production Deployment
 
-**Secure Installation:**
+**Secure Installation Process:**
 ```bash
-# On Raspberry Pi
-cd ~/WellMonitor
+# 1. SSH to Raspberry Pi
+ssh pi@raspberrypi.local
+
+# 2. Update repository
+cd ~/WellMonitor  # Or clone if first time
 git pull
+
+# 3. Run installation
 ./scripts/installation/install-wellmonitor.sh
+
+# 4. Verify service
+sudo systemctl status wellmonitor
+sudo journalctl -u wellmonitor --since "5 minutes ago"
 ```
 
 For complete deployment procedures, see [Installation Guide](../deployment/installation-guide.md).
