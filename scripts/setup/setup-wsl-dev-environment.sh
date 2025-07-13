@@ -8,9 +8,12 @@ echo "🐧 Setting up WSL Development Environment for WellMonitor"
 echo "========================================================"
 
 # Check if running in WSL
-if ! grep -q Microsoft /proc/version; then
+if ! grep -qi "microsoft\|wsl" /proc/version 2>/dev/null && [ ! -f /proc/sys/fs/binfmt_misc/WSLInterop ]; then
     echo "❌ This script must be run inside WSL"
     echo "💡 Install WSL first: wsl --install Ubuntu-22.04"
+    echo "🔍 Debug info:"
+    echo "   /proc/version: $(cat /proc/version 2>/dev/null || echo 'not found')"
+    echo "   WSLInterop: $(ls -la /proc/sys/fs/binfmt_misc/WSLInterop 2>/dev/null || echo 'not found')"
     exit 1
 fi
 

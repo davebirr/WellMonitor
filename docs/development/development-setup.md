@@ -79,13 +79,14 @@ sudo apt update && sudo apt upgrade -y
 
 **3. Automated Development Environment Setup:**
 ```bash
-# Run the automated setup script
-curl -fsSL https://raw.githubusercontent.com/davebirr/WellMonitor/main/scripts/setup/setup-wsl-dev-environment.sh | bash
-
-# Or clone repository first and run locally
+# Clone repository and run setup script locally (recommended)
 git clone https://github.com/davebirr/WellMonitor.git
 cd WellMonitor
+chmod +x scripts/setup/setup-wsl-dev-environment.sh
 ./scripts/setup/setup-wsl-dev-environment.sh
+
+# Alternative: Run directly from GitHub (if repository is public)
+# curl -fsSL https://raw.githubusercontent.com/davebirr/WellMonitor/main/scripts/setup/setup-wsl-dev-environment.sh | bash
 ```
 
 ### WSL Development Workflow
