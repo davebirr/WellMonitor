@@ -165,7 +165,7 @@ ls -la debug_images/ | head -20
 # Update application (using installer)
 cd ~/WellMonitor
 git pull
-./scripts/install-wellmonitor-complete.sh
+./scripts/installation/install-wellmonitor.sh
 
 # Manual service file update after changes
 sudo systemctl daemon-reload
@@ -232,7 +232,7 @@ sudo rm -rf /opt/wellmonitor /var/lib/wellmonitor /etc/wellmonitor
 
 # Reinstall using installer
 cd ~/WellMonitor
-./scripts/install-wellmonitor-complete.sh --clean
+./scripts/installation/install-wellmonitor.sh --clean
 ```
 
 ## Performance Monitoring

@@ -407,7 +407,7 @@ If the system is completely unresponsive:
    ```bash
    cd ~/WellMonitor
    git pull
-   ./scripts/install-wellmonitor-complete.sh --clean
+   ./scripts/installation/install-wellmonitor.sh --clean
    ```
 
 3. **Restore from backup if needed**

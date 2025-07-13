@@ -56,10 +56,18 @@ cd ~
 git clone https://github.com/davebirr/WellMonitor.git
 cd WellMonitor
 
-# Run complete installation
-chmod +x scripts/install-wellmonitor-complete.sh
-./scripts/install-wellmonitor-complete.sh --clean
+# Run complete installation (script moved to organized location)
+chmod +x scripts/installation/install-wellmonitor.sh
+./scripts/installation/install-wellmonitor.sh --clean
 ```
+
+> **Note**: Scripts have been reorganized into logical categories:
+> - `scripts/installation/` - Installation and deployment scripts  
+> - `scripts/configuration/` - Device twin and settings management
+> - `scripts/diagnostics/` - System diagnostics and troubleshooting
+> - `scripts/maintenance/` - Maintenance and repair utilities
+> 
+> See [`scripts/README.md`](../../scripts/README.md) for complete script documentation.
 
 This single command:
 - ✅ Pulls latest code changes
@@ -182,7 +190,7 @@ To update the application:
 ```bash
 cd ~/WellMonitor
 git pull
-./scripts/install-wellmonitor-complete.sh
+./scripts/installation/install-wellmonitor.sh
 ```
 
 The installer automatically:
@@ -202,3 +210,20 @@ The installer automatically:
 ## Troubleshooting
 
 If you encounter issues, see the [Troubleshooting Guide](troubleshooting-guide.md) for common problems and solutions.
+
+### Quick Diagnostic Commands
+```bash
+# Check service status and recent logs
+sudo systemctl status wellmonitor
+sudo journalctl -u wellmonitor -n 20 -f
+
+# Run system diagnostics (organized scripts)
+./scripts/diagnostics/diagnose-system.sh
+./scripts/diagnostics/diagnose-service.sh
+./scripts/diagnostics/diagnose-camera.sh
+
+# Check device configuration
+./scripts/diagnostics/check-device-configuration.sh
+```
+
+See [`scripts/diagnostics/`](../../scripts/diagnostics/) for complete diagnostic tools.

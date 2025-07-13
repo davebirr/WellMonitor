@@ -509,7 +509,7 @@ cd ~/WellMonitor-dev
 # On Raspberry Pi
 cd ~/WellMonitor
 git pull
-./scripts/install-wellmonitor-complete.sh
+./scripts/installation/install-wellmonitor.sh
 ```
 
 For complete deployment procedures, see [Installation Guide](../deployment/installation-guide.md).
