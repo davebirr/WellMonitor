@@ -2,6 +2,62 @@
 
 Complete development environment setup for the WellMonitor .NET application.
 
+## 🎯 Deployment Configuration
+
+This project supports multiple deployment targets. Configure your specific deployment using environment variables to keep sensitive details out of source control.
+
+**Quick Setup:**
+```bash
+# Copy and customize the configuration template
+cp .env.template .env.local
+# Edit .env.local with your actual Pi hostname, username, etc.
+source .env.local
+```
+
+**Environment Variables for Development:**
+```bash
+# Set these in your development environment
+export WELLMONITOR_PI_HOSTNAME="your-pi-hostname.local"
+export WELLMONITOR_PI_USERNAME="your-pi-username"  
+export WELLMONITOR_SSH_KEY_PATH="~/.ssh/id_rsa"
+```
+
+**Example Configuration:**
+```bash
+# Example values (replace with your actual deployment)
+export WELLMONITOR_PI_HOSTNAME="raspberrypi.local"
+export WELLMONITOR_PI_USERNAME="pi"
+export WELLMONITOR_SSH_KEY_PATH="~/.ssh/id_rsa"
+```
+
+📖 **For complete configuration instructions, see [Deployment Configuration Guide](../configuration/deployment-configuration.md)**
+
+**Quick Access Commands:**
+```bash
+# SSH to Pi (uses environment variables)
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}
+
+# Monitor service logs
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo journalctl -u wellmonitor -f"
+
+# Check service status  
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo systemctl status wellmonitor"
+```
+
+**WSL/Linux Setup:**
+Add to your `~/.bashrc` or `~/.profile`:
+```bash
+# WellMonitor deployment configuration
+export WELLMONITOR_PI_HOSTNAME="your-pi-hostname.local"
+export WELLMONITOR_PI_USERNAME="your-pi-username"
+export WELLMONITOR_SSH_KEY_PATH="~/.ssh/id_rsa"
+
+# Convenient aliases
+alias ssh-pi='ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}'
+alias pi-logs='ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo journalctl -u wellmonitor -f"'
+alias pi-status='ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo systemctl status wellmonitor"'
+```
+
 ## Prerequisites
 
 ### Development Machine Requirements
@@ -109,7 +165,7 @@ dotnet build src/WellMonitor.Device/WellMonitor.Device.csproj -c Release -r linu
 ./scripts/installation/install-wellmonitor.sh
 
 # Monitor Pi logs
-ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
+ssh davidb@rpi4b-1407well01 "sudo journalctl -u wellmonitor -f"
 
 # Open VS Code with WSL context
 code .  # Opens project in VS Code with Linux environment
@@ -137,16 +193,47 @@ code .  # VS Code opens with WSL context automatically
 
 ### SSH Configuration for Pi Access
 
+**Configure Your Deployment:**
+Set your specific Pi details using environment variables (as shown in Deployment Configuration above).
+
 **Generate SSH Key (if needed):**
 ```bash
 # Generate SSH key for Pi access
 ssh-keygen -t ed25519 -C "your-email@example.com"
 
-# Copy public key to Pi
-ssh-copy-id pi@raspberrypi.local
+# Copy public key to Pi (using environment variables)
+ssh-copy-id ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}
 
 # Test connection
-ssh pi@raspberrypi.local "echo 'Connection successful!'"
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "echo 'Connection successful!'"
+```
+
+**Create SSH Config for Convenience:**
+```bash
+# Create or edit SSH config
+nano ~/.ssh/config
+
+# Add this configuration (replace with your actual values):
+Host pi
+    HostName your-pi-hostname.local
+    User your-pi-username
+    IdentityFile ~/.ssh/id_rsa
+    IdentitiesOnly yes
+
+Host well
+    HostName your-pi-hostname.local
+    User your-pi-username
+    IdentityFile ~/.ssh/id_rsa
+    IdentitiesOnly yes
+```
+
+**With SSH config, you can connect using:**
+```bash
+ssh pi
+# or
+ssh well
+# or use environment variables
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}
 ```
 
 ### GitHub Authentication Setup
@@ -690,7 +777,7 @@ cd ~/WellMonitor
 ./scripts/installation/install-wellmonitor.sh
 
 # Monitor installation progress and results
-ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo journalctl -u wellmonitor -f"
 ```
 
 **Quick Update Deployment:**
@@ -703,9 +790,9 @@ dotnet publish src/WellMonitor.Device/WellMonitor.Device.csproj \
   -o /tmp/wellmonitor-build
 
 # Stop service, copy, restart
-ssh pi@raspberrypi.local "sudo systemctl stop wellmonitor"
-scp -r /tmp/wellmonitor-build/* pi@raspberrypi.local:/opt/wellmonitor/
-ssh pi@raspberrypi.local "sudo systemctl start wellmonitor"
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo systemctl stop wellmonitor"
+scp -r /tmp/wellmonitor-build/* ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}:/opt/wellmonitor/
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo systemctl start wellmonitor"
 ```
 
 ### Alternative: Windows Deployment
@@ -713,8 +800,8 @@ ssh pi@raspberrypi.local "sudo systemctl start wellmonitor"
 **Using Git Bash or PowerShell:**
 ```powershell
 # Copy installation script to Pi and run remotely
-scp scripts/installation/install-wellmonitor.sh pi@raspberrypi.local:~/
-ssh pi@raspberrypi.local "./install-wellmonitor.sh"
+scp scripts/installation/install-wellmonitor.sh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}:~/
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "./install-wellmonitor.sh"
 ```
 
 ### Deployment Comparison
@@ -736,7 +823,7 @@ dotnet build src/WellMonitor.Device/WellMonitor.Device.csproj -c Release -r linu
 ./scripts/installation/install-wellmonitor.sh
 
 # 4. Monitor logs
-ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME} "sudo journalctl -u wellmonitor -f"
 
 # 5. Update camera settings via device twin
 ./scripts/diagnostics/fix-camera-property-names.ps1
@@ -747,7 +834,7 @@ ssh pi@raspberrypi.local "sudo journalctl -u wellmonitor -f"
 **Secure Installation Process:**
 ```bash
 # 1. SSH to Raspberry Pi
-ssh pi@raspberrypi.local
+ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}
 
 # 2. Update repository
 cd ~/WellMonitor  # Or clone if first time
