@@ -1,6 +1,7 @@
 using WellMonitor.Device.Services;
 using WellMonitor.Device.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 using System.Threading.Tasks;
@@ -10,12 +11,23 @@ namespace WellMonitor.Device.Tests
     public class CameraServiceTests
     {
         private readonly Mock<ILogger<CameraService>> _mockLogger;
+        private readonly Mock<IOptionsMonitor<DebugOptions>> _mockDebugOptions;
         private readonly CameraOptions _cameraOptions;
         private readonly CameraService _cameraService;
 
         public CameraServiceTests()
         {
             _mockLogger = new Mock<ILogger<CameraService>>();
+            _mockDebugOptions = new Mock<IOptionsMonitor<DebugOptions>>();
+            
+            // Setup debug options mock
+            _mockDebugOptions.Setup(x => x.CurrentValue).Returns(new DebugOptions
+            {
+                ImageSaveEnabled = false,
+                DebugMode = false,
+                ImageRetentionDays = 7
+            });
+            
             _cameraOptions = new CameraOptions
             {
                 Width = 1920,
@@ -30,7 +42,7 @@ namespace WellMonitor.Device.Tests
                 EnablePreview = false,
                 DebugImagePath = "./debug_images"
             };
-            _cameraService = new CameraService(_mockLogger.Object, _cameraOptions);
+            _cameraService = new CameraService(_mockLogger.Object, _cameraOptions, _mockDebugOptions.Object);
         }
 
         [Fact]

@@ -212,9 +212,6 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     // Register pump status analyzer for interpreting OCR results
     services.AddSingleton<PumpStatusAnalyzer>();
     
-    // Register OCR testing service
-    services.AddSingleton<OcrTestingService>();
-    
     // Register OCR diagnostics service
     services.AddSingleton<OcrDiagnosticsService>();
 }

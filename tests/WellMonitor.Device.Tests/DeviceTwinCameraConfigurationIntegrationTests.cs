@@ -29,11 +29,12 @@ namespace WellMonitor.Device.Tests
                 .AddEnvironmentVariables()
                 .Build();
 
-            _secretsService = new SecretsService(configuration);
-            _iotHubConnectionString = _secretsService.GetIotHubConnectionString();
+            var mockLogger = new Mock<ILogger<SimplifiedSecretsService>>();
+            _secretsService = new SimplifiedSecretsService(configuration, mockLogger.Object);
+            _iotHubConnectionString = _secretsService.GetIotHubConnectionStringAsync().GetAwaiter().GetResult();
             
-            var mockLogger = new Mock<ILogger<DeviceTwinService>>();
-            _logger = mockLogger.Object;
+            var mockDeviceTwinLogger = new Mock<ILogger<DeviceTwinService>>();
+            _logger = mockDeviceTwinLogger.Object;
         }
 
         [Fact]

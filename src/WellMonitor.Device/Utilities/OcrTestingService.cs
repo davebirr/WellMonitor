@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using WellMonitor.Device.Models;
 using WellMonitor.Device.Services;
 
-namespace WellMonitor.Device.Services;
+namespace WellMonitor.Device.Utilities;
 
 /// <summary>
 /// OCR testing service to validate OCR functionality with sample images

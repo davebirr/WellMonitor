@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using WellMonitor.Device.Models;
 
-namespace WellMonitor.Device;
+namespace WellMonitor.Device.Utilities;
 
 /// <summary>
 /// Diagnostic tool to help troubleshoot debug image saving issues
