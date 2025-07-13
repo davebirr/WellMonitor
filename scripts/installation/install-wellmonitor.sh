@@ -37,9 +37,12 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 DEVICE_PROJECT="$PROJECT_ROOT/src/WellMonitor.Device"
 
 echo -e "${BLUE}📍 Current status:${NC}"
-echo "  Branch: $(git branch --show-current)"
+echo "  Script Dir: $SCRIPT_DIR"
+echo "  Project Root: $PROJECT_ROOT"
+echo "  Device Project: $DEVICE_PROJECT"
+echo "  Branch: $(git -C "$PROJECT_ROOT" branch --show-current 2>/dev/null || echo 'unknown')"
 echo "  Location: $PROJECT_ROOT"
-echo "  Last commit: $(git log -1 --oneline)"
+echo "  Last commit: $(git -C "$PROJECT_ROOT" log -1 --oneline 2>/dev/null || echo 'unknown')"
 echo ""
 
 # Stop and disable existing service first
@@ -59,13 +62,13 @@ if [ "$SKIP_BUILD" = false ]; then
     cd "$PROJECT_ROOT"
     
     echo -e "${BLUE}📥 Fetching latest changes...${NC}"
-    git fetch origin
+    git -C "$PROJECT_ROOT" fetch origin
     
     # Check if we're behind
-    BEHIND=$(git rev-list --count HEAD..origin/$(git branch --show-current) 2>/dev/null || echo "0")
+    BEHIND=$(git -C "$PROJECT_ROOT" rev-list --count HEAD..origin/$(git -C "$PROJECT_ROOT" branch --show-current) 2>/dev/null || echo "0")
     if [ "$BEHIND" -gt 0 ]; then
         echo -e "${GREEN}🔄 Pulling $BEHIND new commit(s)...${NC}"
-        git pull
+        git -C "$PROJECT_ROOT" pull
     else
         echo -e "${GREEN}✅ Already up to date${NC}"
     fi
@@ -73,14 +76,14 @@ if [ "$SKIP_BUILD" = false ]; then
     # Clean build if requested
     if [ "$CLEAN_BUILD" = true ]; then
         echo -e "${BLUE}🧹 Cleaning previous build...${NC}"
-        dotnet clean
-        find . -name "bin" -type d -exec rm -rf {} + 2>/dev/null || true
-        find . -name "obj" -type d -exec rm -rf {} + 2>/dev/null || true
+        dotnet clean --project "$DEVICE_PROJECT"
+        find "$PROJECT_ROOT" -name "bin" -type d -exec rm -rf {} + 2>/dev/null || true
+        find "$PROJECT_ROOT" -name "obj" -type d -exec rm -rf {} + 2>/dev/null || true
     fi
     
     # Restore and build
     echo -e "${BLUE}📦 Restoring packages...${NC}"
-    if ! dotnet restore; then
+    if ! dotnet restore "$PROJECT_ROOT"; then
         echo -e "${RED}❌ Package restore failed${NC}"
         exit 1
     fi
@@ -93,9 +96,9 @@ if [ "$SKIP_BUILD" = false ]; then
     echo -e "${GREEN}✅ Build successful${NC}"
     
     # Run tests if they exist
-    if [ -d "tests" ] && [ "$(find tests -name "*.csproj" | wc -l)" -gt 0 ]; then
+    if [ -d "$PROJECT_ROOT/tests" ] && [ "$(find "$PROJECT_ROOT/tests" -name "*.csproj" | wc -l)" -gt 0 ]; then
         echo -e "${BLUE}🧪 Running tests...${NC}"
-        if dotnet test --no-build --configuration Release --verbosity minimal; then
+        if dotnet test "$PROJECT_ROOT" --no-build --configuration Release --verbosity minimal; then
             echo -e "${GREEN}✅ Tests passed${NC}"
         else
             echo -e "${YELLOW}⚠️  Some tests failed${NC}"
