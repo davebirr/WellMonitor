@@ -16,6 +16,7 @@ namespace WellMonitor.Device.Services
         Task<PowerManagementOptions> FetchPowerManagementConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task ReportOcrStatusAsync(DeviceClient deviceClient, IOcrService ocrService, ILogger logger);
+        Task LogPeriodicConfigurationSummaryAsync(DeviceClient deviceClient, CameraOptions cameraOptions, ILogger logger);
     }
 
     public class DeviceTwinService : IDeviceTwinService
@@ -40,15 +41,33 @@ namespace WellMonitor.Device.Services
                 logger.LogWarning("Device twin validation warnings: {Warnings}", deviceTwinValidation.GetErrorSummary());
             }
 
+            logger.LogInformation("🔧 Loading well monitor configuration from device twin...");
+            
+            var configFromDeviceTwin = new List<string>();
+            var configFromDefaults = new List<string>();
+            
             // Read configuration from device twin desired properties (with fallback to config file)
-            double currentThreshold = desired.Contains("currentThreshold") ? (double)desired["currentThreshold"] : configuration.GetValue("CurrentThreshold", 4.5);
-            int cycleTimeThreshold = desired.Contains("cycleTimeThreshold") ? (int)desired["cycleTimeThreshold"] : configuration.GetValue("CycleTimeThreshold", 30);
-            int relayDebounceMs = desired.Contains("relayDebounceMs") ? (int)desired["relayDebounceMs"] : configuration.GetValue("RelayDebounceMs", 500);
+            double currentThreshold = LoadConfigValue(desired, "currentThreshold", () => configuration.GetValue("CurrentThreshold", 4.5), configFromDeviceTwin, configFromDefaults);
+            int cycleTimeThreshold = LoadConfigValue(desired, "cycleTimeThreshold", () => configuration.GetValue("CycleTimeThreshold", 30), configFromDeviceTwin, configFromDefaults);
+            int relayDebounceMs = LoadConfigValue(desired, "relayDebounceMs", () => configuration.GetValue("RelayDebounceMs", 500), configFromDeviceTwin, configFromDefaults);
             gpioOptions.RelayDebounceMs = relayDebounceMs;
-            int syncIntervalMinutes = desired.Contains("syncIntervalMinutes") ? (int)desired["syncIntervalMinutes"] : configuration.GetValue("SyncIntervalMinutes", 5);
-            int logRetentionDays = desired.Contains("logRetentionDays") ? (int)desired["logRetentionDays"] : configuration.GetValue("LogRetentionDays", 14);
-            string ocrMode = desired.Contains("ocrMode") ? (string)desired["ocrMode"] : configuration.GetValue("OcrMode", "tesseract");
-            bool powerAppEnabled = desired.Contains("powerAppEnabled") ? (bool)desired["powerAppEnabled"] : configuration.GetValue("PowerAppEnabled", true);
+            int syncIntervalMinutes = LoadConfigValue(desired, "syncIntervalMinutes", () => configuration.GetValue("SyncIntervalMinutes", 5), configFromDeviceTwin, configFromDefaults);
+            int logRetentionDays = LoadConfigValue(desired, "logRetentionDays", () => configuration.GetValue("LogRetentionDays", 14), configFromDefaults, configFromDefaults);
+            string ocrMode = LoadConfigValue(desired, "ocrMode", () => configuration.GetValue("OcrMode", "tesseract"), configFromDeviceTwin, configFromDefaults);
+            bool powerAppEnabled = LoadConfigValue(desired, "powerAppEnabled", () => configuration.GetValue("PowerAppEnabled", true), configFromDeviceTwin, configFromDefaults);
+
+            // Log configuration source summary
+            if (configFromDeviceTwin.Any())
+            {
+                logger.LogInformation("✅ Well monitor settings loaded from device twin: {ConfigFromDeviceTwin}", 
+                    string.Join(", ", configFromDeviceTwin));
+            }
+            
+            if (configFromDefaults.Any())
+            {
+                logger.LogWarning("🔸 Well monitor settings using default values (not found in device twin): {ConfigFromDefaults}", 
+                    string.Join(", ", configFromDefaults));
+            }
 
             // Camera configuration from device twin (with fallback to defaults)
             UpdateCameraOptionsFromDeviceTwin(desired, configuration, cameraOptions, logger);
@@ -79,50 +98,49 @@ namespace WellMonitor.Device.Services
             }
             else
             {
-                logger.LogInformation("Well monitor configuration validated successfully from device twin");
+                logger.LogInformation("✅ Well monitor configuration validated successfully from device twin");
             }
 
-            logger.LogInformation($"Loaded config: currentThreshold={config.CurrentThreshold}, cycleTimeThreshold={config.CycleTimeThreshold}, relayDebounceMs={config.RelayDebounceMs}, syncIntervalMinutes={config.SyncIntervalMinutes}, logRetentionDays={config.LogRetentionDays}, ocrMode={config.OcrMode}, powerAppEnabled={config.PowerAppEnabled}");
-            logger.LogInformation($"Camera config: width={cameraOptions.Width}, height={cameraOptions.Height}, quality={cameraOptions.Quality}, brightness={cameraOptions.Brightness}, contrast={cameraOptions.Contrast}, rotation={cameraOptions.Rotation}");
+            // Log comprehensive configuration summary
+            LogWellMonitorConfiguration(config, logger);
 
             return config;
         }
 
         private void UpdateCameraOptionsFromDeviceTwin(TwinCollection desired, IConfiguration configuration, CameraOptions cameraOptions, ILogger logger)
         {
-            // Update camera options from device twin with fallback to current values
-            if (desired.Contains("cameraWidth"))
-                cameraOptions.Width = (int)desired["cameraWidth"];
+            logger.LogInformation("🔧 Updating camera configuration from device twin...");
             
-            if (desired.Contains("cameraHeight"))
-                cameraOptions.Height = (int)desired["cameraHeight"];
+            var settingsFromDeviceTwin = new List<string>();
+            var settingsFromDefaults = new List<string>();
             
-            if (desired.Contains("cameraQuality"))
-                cameraOptions.Quality = (int)desired["cameraQuality"];
+            // Check for new nested Camera structure first (preferred)
+            if (desired.Contains("Camera") && desired["Camera"] is TwinCollection cameraConfig)
+            {
+                logger.LogInformation("📡 Found Camera configuration in device twin (nested structure)");
+                UpdateCameraFromNestedConfig(cameraConfig, cameraOptions, settingsFromDeviceTwin, settingsFromDefaults, logger);
+            }
+            else
+            {
+                logger.LogWarning("⚠️ Camera configuration not found in nested structure, checking legacy flat properties");
+                UpdateCameraFromLegacyConfig(desired, configuration, cameraOptions, settingsFromDeviceTwin, settingsFromDefaults, logger);
+            }
             
-            if (desired.Contains("cameraTimeoutMs"))
-                cameraOptions.TimeoutMs = (int)desired["cameraTimeoutMs"];
+            // Log configuration source summary
+            if (settingsFromDeviceTwin.Any())
+            {
+                logger.LogInformation("✅ Camera settings loaded from device twin: {SettingsFromDeviceTwin}", 
+                    string.Join(", ", settingsFromDeviceTwin));
+            }
             
-            if (desired.Contains("cameraWarmupTimeMs"))
-                cameraOptions.WarmupTimeMs = (int)desired["cameraWarmupTimeMs"];
+            if (settingsFromDefaults.Any())
+            {
+                logger.LogWarning("🔸 Camera settings using default values (not found in device twin): {SettingsFromDefaults}", 
+                    string.Join(", ", settingsFromDefaults));
+            }
             
-            if (desired.Contains("cameraRotation"))
-                cameraOptions.Rotation = (int)desired["cameraRotation"];
-            
-            if (desired.Contains("cameraBrightness"))
-                cameraOptions.Brightness = (int)desired["cameraBrightness"];
-            
-            if (desired.Contains("cameraContrast"))
-                cameraOptions.Contrast = (int)desired["cameraContrast"];
-            
-            if (desired.Contains("cameraSaturation"))
-                cameraOptions.Saturation = (int)desired["cameraSaturation"];
-            
-            if (desired.Contains("cameraEnablePreview"))
-                cameraOptions.EnablePreview = (bool)desired["cameraEnablePreview"];
-            
-            if (desired.Contains("cameraDebugImagePath"))
-                cameraOptions.DebugImagePath = (string)desired["cameraDebugImagePath"];
+            // Log final camera configuration
+            LogCameraConfiguration(cameraOptions, logger);
 
             // Validate camera configuration
             var validationService = new ConfigurationValidationService();
@@ -541,6 +559,346 @@ namespace WellMonitor.Device.Services
             }
         }
 
+        private void UpdateCameraFromNestedConfig(TwinCollection cameraConfig, CameraOptions cameraOptions, 
+            List<string> settingsFromDeviceTwin, List<string> settingsFromDefaults, ILogger logger)
+        {
+            // Update camera options from nested Camera configuration
+            UpdateCameraSetting(cameraConfig, "Width", val => cameraOptions.Width = (int)val, 
+                () => cameraOptions.Width, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Height", val => cameraOptions.Height = (int)val, 
+                () => cameraOptions.Height, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Quality", val => cameraOptions.Quality = (int)val, 
+                () => cameraOptions.Quality, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "TimeoutMs", val => cameraOptions.TimeoutMs = (int)val, 
+                () => cameraOptions.TimeoutMs, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "WarmupTimeMs", val => cameraOptions.WarmupTimeMs = (int)val, 
+                () => cameraOptions.WarmupTimeMs, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Rotation", val => cameraOptions.Rotation = (int)val, 
+                () => cameraOptions.Rotation, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Brightness", val => cameraOptions.Brightness = (int)val, 
+                () => cameraOptions.Brightness, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Contrast", val => cameraOptions.Contrast = (int)val, 
+                () => cameraOptions.Contrast, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Saturation", val => cameraOptions.Saturation = (int)val, 
+                () => cameraOptions.Saturation, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "Gain", val => cameraOptions.Gain = (double)val, 
+                () => cameraOptions.Gain, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "ShutterSpeedMicroseconds", val => cameraOptions.ShutterSpeedMicroseconds = (int)val, 
+                () => cameraOptions.ShutterSpeedMicroseconds, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "AutoExposure", val => cameraOptions.AutoExposure = (bool)val, 
+                () => cameraOptions.AutoExposure, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "AutoWhiteBalance", val => cameraOptions.AutoWhiteBalance = (bool)val, 
+                () => cameraOptions.AutoWhiteBalance, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "EnablePreview", val => cameraOptions.EnablePreview = (bool)val, 
+                () => cameraOptions.EnablePreview, settingsFromDeviceTwin, settingsFromDefaults);
+            
+            UpdateCameraSetting(cameraConfig, "DebugImagePath", val => cameraOptions.DebugImagePath = (string)val, 
+                () => cameraOptions.DebugImagePath ?? "not set", settingsFromDeviceTwin, settingsFromDefaults);
+        }
+        
+        private void UpdateCameraFromLegacyConfig(TwinCollection desired, IConfiguration configuration, 
+            CameraOptions cameraOptions, List<string> settingsFromDeviceTwin, List<string> settingsFromDefaults, ILogger logger)
+        {
+            // Handle legacy flat camera properties for backward compatibility
+            logger.LogInformation("🔄 Processing legacy camera configuration properties");
+            
+            if (desired.Contains("cameraWidth"))
+            {
+                cameraOptions.Width = (int)desired["cameraWidth"];
+                settingsFromDeviceTwin.Add($"Width={cameraOptions.Width}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Width={cameraOptions.Width} (default)");
+            }
+            
+            if (desired.Contains("cameraHeight"))
+            {
+                cameraOptions.Height = (int)desired["cameraHeight"];
+                settingsFromDeviceTwin.Add($"Height={cameraOptions.Height}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Height={cameraOptions.Height} (default)");
+            }
+            
+            if (desired.Contains("cameraQuality"))
+            {
+                cameraOptions.Quality = (int)desired["cameraQuality"];
+                settingsFromDeviceTwin.Add($"Quality={cameraOptions.Quality}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Quality={cameraOptions.Quality} (default)");
+            }
+            
+            if (desired.Contains("cameraTimeoutMs"))
+            {
+                cameraOptions.TimeoutMs = (int)desired["cameraTimeoutMs"];
+                settingsFromDeviceTwin.Add($"TimeoutMs={cameraOptions.TimeoutMs}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"TimeoutMs={cameraOptions.TimeoutMs} (default)");
+            }
+            
+            if (desired.Contains("cameraWarmupTimeMs"))
+            {
+                cameraOptions.WarmupTimeMs = (int)desired["cameraWarmupTimeMs"];
+                settingsFromDeviceTwin.Add($"WarmupTimeMs={cameraOptions.WarmupTimeMs}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"WarmupTimeMs={cameraOptions.WarmupTimeMs} (default)");
+            }
+            
+            if (desired.Contains("cameraRotation"))
+            {
+                cameraOptions.Rotation = (int)desired["cameraRotation"];
+                settingsFromDeviceTwin.Add($"Rotation={cameraOptions.Rotation}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Rotation={cameraOptions.Rotation} (default)");
+            }
+            
+            if (desired.Contains("cameraBrightness"))
+            {
+                cameraOptions.Brightness = (int)desired["cameraBrightness"];
+                settingsFromDeviceTwin.Add($"Brightness={cameraOptions.Brightness}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Brightness={cameraOptions.Brightness} (default)");
+            }
+            
+            if (desired.Contains("cameraContrast"))
+            {
+                cameraOptions.Contrast = (int)desired["cameraContrast"];
+                settingsFromDeviceTwin.Add($"Contrast={cameraOptions.Contrast}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Contrast={cameraOptions.Contrast} (default)");
+            }
+            
+            if (desired.Contains("cameraSaturation"))
+            {
+                cameraOptions.Saturation = (int)desired["cameraSaturation"];
+                settingsFromDeviceTwin.Add($"Saturation={cameraOptions.Saturation}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Saturation={cameraOptions.Saturation} (default)");
+            }
+            
+            if (desired.Contains("cameraGain"))
+            {
+                cameraOptions.Gain = (double)desired["cameraGain"];
+                settingsFromDeviceTwin.Add($"Gain={cameraOptions.Gain}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"Gain={cameraOptions.Gain} (default)");
+            }
+            
+            if (desired.Contains("cameraShutterSpeedMicroseconds"))
+            {
+                cameraOptions.ShutterSpeedMicroseconds = (int)desired["cameraShutterSpeedMicroseconds"];
+                settingsFromDeviceTwin.Add($"ShutterSpeedMicroseconds={cameraOptions.ShutterSpeedMicroseconds}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"ShutterSpeedMicroseconds={cameraOptions.ShutterSpeedMicroseconds} (default)");
+            }
+            
+            if (desired.Contains("cameraAutoExposure"))
+            {
+                cameraOptions.AutoExposure = (bool)desired["cameraAutoExposure"];
+                settingsFromDeviceTwin.Add($"AutoExposure={cameraOptions.AutoExposure}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"AutoExposure={cameraOptions.AutoExposure} (default)");
+            }
+            
+            if (desired.Contains("cameraAutoWhiteBalance"))
+            {
+                cameraOptions.AutoWhiteBalance = (bool)desired["cameraAutoWhiteBalance"];
+                settingsFromDeviceTwin.Add($"AutoWhiteBalance={cameraOptions.AutoWhiteBalance}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"AutoWhiteBalance={cameraOptions.AutoWhiteBalance} (default)");
+            }
+            
+            if (desired.Contains("cameraEnablePreview"))
+            {
+                cameraOptions.EnablePreview = (bool)desired["cameraEnablePreview"];
+                settingsFromDeviceTwin.Add($"EnablePreview={cameraOptions.EnablePreview}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"EnablePreview={cameraOptions.EnablePreview} (default)");
+            }
+            
+            if (desired.Contains("cameraDebugImagePath"))
+            {
+                cameraOptions.DebugImagePath = (string)desired["cameraDebugImagePath"];
+                settingsFromDeviceTwin.Add($"DebugImagePath={cameraOptions.DebugImagePath}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"DebugImagePath={cameraOptions.DebugImagePath ?? "not set"} (default)");
+            }
+        }
+        
+        private void UpdateCameraSetting<T>(TwinCollection config, string propertyName, Action<object> setter, 
+            Func<T> getter, List<string> settingsFromDeviceTwin, List<string> settingsFromDefaults)
+        {
+            if (config.Contains(propertyName))
+            {
+                setter(config[propertyName]);
+                settingsFromDeviceTwin.Add($"{propertyName}={getter()}");
+            }
+            else
+            {
+                settingsFromDefaults.Add($"{propertyName}={getter()} (default)");
+            }
+        }
+        
+        private void LogCameraConfiguration(CameraOptions cameraOptions, ILogger logger)
+        {
+            logger.LogInformation("📸 Final Camera Configuration:");
+            logger.LogInformation("   Image: {Width}x{Height}, Quality: {Quality}%, Rotation: {Rotation}°",
+                cameraOptions.Width, cameraOptions.Height, cameraOptions.Quality, cameraOptions.Rotation);
+            logger.LogInformation("   Timing: Timeout: {TimeoutMs}ms, Warmup: {WarmupTimeMs}ms",
+                cameraOptions.TimeoutMs, cameraOptions.WarmupTimeMs);
+            logger.LogInformation("   Visual: Brightness: {Brightness}, Contrast: {Contrast}, Saturation: {Saturation}",
+                cameraOptions.Brightness, cameraOptions.Contrast, cameraOptions.Saturation);
+            logger.LogInformation("   Exposure: Gain: {Gain}, Shutter: {ShutterSpeed}μs, AutoExposure: {AutoExposure}, AutoWhiteBalance: {AutoWhiteBalance}",
+                cameraOptions.Gain, cameraOptions.ShutterSpeedMicroseconds, cameraOptions.AutoExposure, cameraOptions.AutoWhiteBalance);
+            logger.LogInformation("   Debug: Preview: {EnablePreview}, DebugImagePath: '{DebugImagePath}'",
+                cameraOptions.EnablePreview, cameraOptions.DebugImagePath ?? "not set");
+                
+            // Highlight critical settings for LED environment
+            if (cameraOptions.Gain > 2.0)
+            {
+                logger.LogWarning("⚠️ High camera gain ({Gain}) detected - may cause overexposure with bright LEDs", cameraOptions.Gain);
+            }
+            
+            if (cameraOptions.ShutterSpeedMicroseconds > 20000)
+            {
+                logger.LogWarning("⚠️ Long shutter speed ({ShutterSpeed}μs) detected - may cause motion blur or overexposure", cameraOptions.ShutterSpeedMicroseconds);
+            }
+            
+            if (cameraOptions.AutoExposure)
+            {
+                logger.LogWarning("⚠️ Auto-exposure enabled - may cause inconsistent exposure with LED displays");
+            }
+        }
+        
+        private T LoadConfigValue<T>(TwinCollection desired, string propertyName, Func<T> defaultValueProvider, 
+            List<string> configFromDeviceTwin, List<string> configFromDefaults)
+        {
+            if (desired.Contains(propertyName))
+            {
+                var value = (T)desired[propertyName];
+                configFromDeviceTwin.Add($"{propertyName}={value}");
+                return value;
+            }
+            else
+            {
+                var defaultValue = defaultValueProvider();
+                configFromDefaults.Add($"{propertyName}={defaultValue} (default)");
+                return defaultValue;
+            }
+        }
+        
+        private void LogWellMonitorConfiguration(DeviceTwinConfig config, ILogger logger)
+        {
+            logger.LogInformation("⚙️ Final Well Monitor Configuration:");
+            logger.LogInformation("   Pump Monitoring: CurrentThreshold: {CurrentThreshold}A, CycleTimeThreshold: {CycleTimeThreshold}s",
+                config.CurrentThreshold, config.CycleTimeThreshold);
+            logger.LogInformation("   System: RelayDebounce: {RelayDebounceMs}ms, SyncInterval: {SyncIntervalMinutes}min, LogRetention: {LogRetentionDays}d",
+                config.RelayDebounceMs, config.SyncIntervalMinutes, config.LogRetentionDays);
+            logger.LogInformation("   OCR: Mode: {OcrMode}, PowerApp: {PowerAppEnabled}",
+                config.OcrMode, config.PowerAppEnabled);
+                
+            // Add warnings for potentially problematic values
+            if (config.CurrentThreshold < 1.0 || config.CurrentThreshold > 20.0)
+            {
+                logger.LogWarning("⚠️ Unusual current threshold ({CurrentThreshold}A) - typical range is 1.0-20.0A", config.CurrentThreshold);
+            }
+            
+            if (config.CycleTimeThreshold < 10 || config.CycleTimeThreshold > 300)
+            {
+                logger.LogWarning("⚠️ Unusual cycle time threshold ({CycleTimeThreshold}s) - typical range is 10-300s", config.CycleTimeThreshold);
+            }
+        }
+        
+        /// <summary>
+        /// Log periodic configuration summary for monitoring and troubleshooting
+        /// </summary>
+        public async Task LogPeriodicConfigurationSummaryAsync(DeviceClient deviceClient, CameraOptions cameraOptions, ILogger logger)
+        {
+            try
+            {
+                logger.LogInformation("📊 Periodic Configuration Summary Report:");
+                
+                // Get current device twin
+                Twin twin = await deviceClient.GetTwinAsync();
+                var desired = twin.Properties.Desired;
+                var reported = twin.Properties.Reported;
+                
+                logger.LogInformation("🔗 Device Twin Status:");
+                logger.LogInformation("   Desired Properties Version: {DesiredVersion}", desired.Version);
+                logger.LogInformation("   Reported Properties Version: {ReportedVersion}", reported.Version);
+                logger.LogInformation("   Last Updated: {LastUpdated}", desired.GetLastUpdated());
+                
+                // Check for configuration drift
+                var cameraFromTwin = desired.Contains("Camera") ? "nested structure" : 
+                                   (HasLegacyCameraProperties(desired) ? "legacy flat properties" : "not found");
+                logger.LogInformation("   Camera Configuration Source: {CameraSource}", cameraFromTwin);
+                
+                // Log current active camera settings
+                LogCameraConfiguration(cameraOptions, logger);
+                
+                // Check for common misconfigurations
+                if (cameraFromTwin == "not found")
+                {
+                    logger.LogWarning("🚨 No camera configuration found in device twin - using all default values!");
+                }
+                
+                if (desired.Contains("Camera") && HasLegacyCameraProperties(desired))
+                {
+                    logger.LogWarning("🔄 Both nested Camera and legacy camera properties found - nested takes precedence");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to log periodic configuration summary");
+            }
+        }
+        
+        private bool HasLegacyCameraProperties(TwinCollection desired)
+        {
+            var legacyProperties = new[] { "cameraWidth", "cameraHeight", "cameraGain", "cameraShutterSpeedMicroseconds" };
+            return legacyProperties.Any(prop => desired.Contains(prop));
+        }
     }
 
     public class DeviceTwinConfig

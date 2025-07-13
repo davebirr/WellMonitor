@@ -34,16 +34,20 @@ function Get-EnvVariable {
     }
     
     # Then try .env file
-    $rootPath = Split-Path (Split-Path (Get-Location) -Parent) -Parent
-    $envPath = Join-Path $rootPath $EnvFilePath
+    $rootPath = Get-Location
+    $envPath = Join-Path $rootPath ".env"
     
     if (Test-Path $envPath) {
+        Write-Host "Found .env file at: $envPath" -ForegroundColor Green
         $envContent = Get-Content $envPath
         foreach ($line in $envContent) {
             if ($line -match "^$Name\s*=\s*(.+)$") {
                 return $matches[1].Trim('"').Trim("'")
             }
         }
+    } else {
+        Write-Host ".env file not found at: $envPath" -ForegroundColor Yellow
+        Write-Host "Current directory: $(Get-Location)" -ForegroundColor Yellow
     }
     
     return $null
