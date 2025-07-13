@@ -76,32 +76,44 @@ if [ "$SKIP_BUILD" = false ]; then
     # Clean build if requested
     if [ "$CLEAN_BUILD" = true ]; then
         echo -e "${BLUE}🧹 Cleaning previous build...${NC}"
-        dotnet clean "$DEVICE_PROJECT"
+        dotnet clean "$PROJECT_ROOT/WellMonitor.sln"
         find "$PROJECT_ROOT" -name "bin" -type d -exec rm -rf {} + 2>/dev/null || true
         find "$PROJECT_ROOT" -name "obj" -type d -exec rm -rf {} + 2>/dev/null || true
     fi
     
     # Restore and build
     echo -e "${BLUE}📦 Restoring packages...${NC}"
-    if ! dotnet restore "$PROJECT_ROOT"; then
+    if ! dotnet restore "$PROJECT_ROOT/WellMonitor.sln"; then
         echo -e "${RED}❌ Package restore failed${NC}"
         exit 1
     fi
     
-    echo -e "${BLUE}🔨 Building project for linux-arm64...${NC}"
-    if ! dotnet publish "$DEVICE_PROJECT" -c Release -r linux-arm64 --self-contained true; then
-        echo -e "${RED}❌ Build failed${NC}"
+    echo -e "${BLUE}🔨 Building solution and publishing device project for linux-arm64...${NC}"
+    # Build the entire solution first to ensure dependencies are built
+    if ! dotnet build "$PROJECT_ROOT/WellMonitor.sln" -c Release; then
+        echo -e "${RED}❌ Solution build failed${NC}"
         exit 1
     fi
-    echo -e "${GREEN}✅ Build successful${NC}"
     
-    # Run tests if they exist
+    # Then publish the device project specifically for linux-arm64
+    if ! dotnet publish "$DEVICE_PROJECT" -c Release -r linux-arm64 --self-contained true; then
+        echo -e "${RED}❌ Device project publish failed${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Build and publish successful${NC}"
+    
+    # Run tests if they exist (only on compatible platforms)
     if [ -d "$PROJECT_ROOT/tests" ] && [ "$(find "$PROJECT_ROOT/tests" -name "*.csproj" | wc -l)" -gt 0 ]; then
         echo -e "${BLUE}🧪 Running tests...${NC}"
-        if dotnet test "$PROJECT_ROOT" --no-build --configuration Release --verbosity minimal; then
-            echo -e "${GREEN}✅ Tests passed${NC}"
+        # Check if we're on ARM64 and skip tests if they're not compatible
+        if [[ "$(uname -m)" == "aarch64" ]]; then
+            echo -e "${YELLOW}⏭️  Skipping tests on ARM64 platform (test runner compatibility)${NC}"
         else
-            echo -e "${YELLOW}⚠️  Some tests failed${NC}"
+            if dotnet test "$PROJECT_ROOT/WellMonitor.sln" --no-build --configuration Release --verbosity minimal; then
+                echo -e "${GREEN}✅ Tests passed${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Some tests failed${NC}"
+            fi
         fi
     fi
 else
@@ -110,6 +122,30 @@ fi
 
 echo ""
 echo -e "${BLUE}🏗️  Setting up secure system installation...${NC}"
+
+# Check camera setup before proceeding
+echo -e "${BLUE}📷 Checking camera setup...${NC}"
+if ! ls /dev/video* >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  No camera devices found. Please ensure:${NC}"
+    echo "  1. Camera is properly connected"
+    echo "  2. Camera is enabled in raspi-config"
+    echo "  3. Reboot after enabling camera"
+    echo ""
+    echo -e "${BLUE}💡 To enable camera:${NC}"
+    echo "  sudo raspi-config"
+    echo "  → Interface Options → Camera → Enable"
+    echo "  → Finish → Reboot"
+    echo ""
+fi
+
+# Check if camera module is loaded
+if ! lsmod | grep -q "bcm2835_v4l2\|bcm2835_isp"; then
+    echo -e "${YELLOW}⚠️  Camera modules not loaded. This may cause camera errors.${NC}"
+    echo -e "${BLUE}💡 You may need to add to /boot/config.txt:${NC}"
+    echo "  camera_auto_detect=1"
+    echo "  start_x=1"
+    echo ""
+fi
 
 # Create system directories
 sudo mkdir -p /opt/wellmonitor
@@ -164,8 +200,10 @@ sudo tee /etc/wellmonitor/environment > /dev/null << 'EOF'
 ASPNETCORE_ENVIRONMENT=Production
 WELLMONITOR_SECRETS_MODE=environment
 DOTNET_EnableDiagnostics=0
-WELLMONITOR_IOTHUB_CONNECTION_STRING=HostName=YourIoTHub.azure-devices.net;DeviceId=YourDeviceId;SharedAccessKey=YourDeviceKey
-WELLMONITOR_LOCAL_ENCRYPTION_KEY=YourLocalEncryptionKey32Characters
+# IMPORTANT: Update these values with your actual Azure IoT Hub credentials
+# Format: HostName=your-hub.azure-devices.net;DeviceId=your-device-id;SharedAccessKey=your-device-key
+WELLMONITOR_IOTHUB_CONNECTION_STRING=REPLACE_WITH_YOUR_ACTUAL_CONNECTION_STRING
+WELLMONITOR_LOCAL_ENCRYPTION_KEY=REPLACE_WITH_32_CHARACTER_ENCRYPTION_KEY
 EOF
 
 # Secure the environment file
@@ -279,6 +317,25 @@ echo -e "${GREEN}✅ Database location:           /var/lib/wellmonitor/wellmonit
 echo -e "${GREEN}✅ Debug images:                /var/lib/wellmonitor/debug_images/${NC}"
 echo -e "${GREEN}✅ Security: ProtectHome=yes    (Enabled)${NC}"
 echo -e "${GREEN}✅ Security: ProtectSystem=strict (Enabled)${NC}"
+echo ""
+echo -e "${YELLOW}🔧 IMPORTANT: Post-Installation Configuration Required${NC}"
+echo "========================================"
+echo -e "${RED}1. Update Azure IoT Hub Connection String:${NC}"
+echo "   sudo nano /etc/wellmonitor/environment"
+echo "   Replace: WELLMONITOR_IOTHUB_CONNECTION_STRING=..."
+echo "   With your actual Azure IoT Hub connection string"
+echo ""
+echo -e "${RED}2. Update Encryption Key:${NC}"
+echo "   Replace: WELLMONITOR_LOCAL_ENCRYPTION_KEY=..."
+echo "   With a 32-character encryption key"
+echo ""
+echo -e "${RED}3. Camera Setup (if camera errors persist):${NC}"
+echo "   sudo raspi-config"
+echo "   → Interface Options → Camera → Enable"
+echo "   → Finish → Reboot"
+echo ""
+echo -e "${RED}4. Restart service after configuration:${NC}"
+echo "   sudo systemctl restart wellmonitor"
 echo ""
 echo -e "${BLUE}📋 Service Management:${NC}"
 echo "  Status:  sudo systemctl status wellmonitor"
