@@ -161,8 +161,8 @@ sudo tee /etc/wellmonitor/environment > /dev/null << 'EOF'
 ASPNETCORE_ENVIRONMENT=Production
 WELLMONITOR_SECRETS_MODE=environment
 DOTNET_EnableDiagnostics=0
-WELLMONITOR_IOTHUB_CONNECTION_STRING=HostName=RTHIoTHub.azure-devices.net;DeviceId=rpi4b-1407well01;SharedAccessKey=up8WmG130lE4BoGCYc7e7NE54uzOod2yBYdOP2xlpiM=
-WELLMONITOR_LOCAL_ENCRYPTION_KEY=12345678901234567890123456789012
+WELLMONITOR_IOTHUB_CONNECTION_STRING=HostName=YourIoTHub.azure-devices.net;DeviceId=YourDeviceId;SharedAccessKey=YourDeviceKey
+WELLMONITOR_LOCAL_ENCRYPTION_KEY=YourLocalEncryptionKey32Characters
 EOF
 
 # Secure the environment file
