@@ -76,7 +76,7 @@ if [ "$SKIP_BUILD" = false ]; then
     # Clean build if requested
     if [ "$CLEAN_BUILD" = true ]; then
         echo -e "${BLUE}🧹 Cleaning previous build...${NC}"
-        dotnet clean --project "$DEVICE_PROJECT"
+        dotnet clean "$DEVICE_PROJECT"
         find "$PROJECT_ROOT" -name "bin" -type d -exec rm -rf {} + 2>/dev/null || true
         find "$PROJECT_ROOT" -name "obj" -type d -exec rm -rf {} + 2>/dev/null || true
     fi
