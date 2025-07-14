@@ -11,6 +11,8 @@ namespace WellMonitor.Device.Services
         void SetInitialOcrOptions(OcrOptions options);
         Task UpdateDebugOptionsAsync(DebugOptions newOptions);
         void SetInitialDebugOptions(DebugOptions options);
+        Task UpdateWebOptionsAsync(WebOptions newOptions);
+        void SetInitialWebOptions(WebOptions options);
     }
 
     /// <summary>
@@ -23,22 +25,24 @@ namespace WellMonitor.Device.Services
         private readonly ILogger<RuntimeConfigurationService> _logger;
         private readonly RuntimeOcrOptionsSource _runtimeOcrOptionsSource;
         private readonly RuntimeDebugOptionsSource _runtimeDebugOptionsSource;
+        private readonly RuntimeWebOptionsSource _runtimeWebOptionsSource;
 
         public RuntimeConfigurationService(
             ILogger<RuntimeConfigurationService> logger,
             RuntimeOcrOptionsSource runtimeOcrOptionsSource,
-            RuntimeDebugOptionsSource runtimeDebugOptionsSource)
+            RuntimeDebugOptionsSource runtimeDebugOptionsSource,
+            RuntimeWebOptionsSource runtimeWebOptionsSource)
         {
             _logger = logger;
             _runtimeOcrOptionsSource = runtimeOcrOptionsSource;
             _runtimeDebugOptionsSource = runtimeDebugOptionsSource;
+            _runtimeWebOptionsSource = runtimeWebOptionsSource;
         }
 
         public Task UpdateOcrOptionsAsync(OcrOptions newOptions)
         {
             _logger.LogInformation("Updating OCR options at runtime: Provider={Provider}, MinConfidence={MinConfidence}", 
                 newOptions.Provider, newOptions.MinimumConfidence);
-            
             _runtimeOcrOptionsSource.UpdateOptions(newOptions);
             return Task.CompletedTask;
         }
@@ -47,6 +51,21 @@ namespace WellMonitor.Device.Services
         {
             _logger.LogInformation("Setting initial OCR options: Provider={Provider}", options.Provider);
             _runtimeOcrOptionsSource.UpdateOptions(options);
+        }
+
+        public Task UpdateWebOptionsAsync(WebOptions newOptions)
+        {
+            _logger.LogInformation("Updating Web options at runtime: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}",
+                newOptions.Port, newOptions.AllowNetworkAccess, newOptions.BindAddress);
+            _runtimeWebOptionsSource.UpdateOptions(newOptions);
+            return Task.CompletedTask;
+        }
+
+        public void SetInitialWebOptions(WebOptions options)
+        {
+            _logger.LogInformation("Setting initial Web options: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}",
+                options.Port, options.AllowNetworkAccess, options.BindAddress);
+            _runtimeWebOptionsSource.UpdateOptions(options);
         }
 
         public Task UpdateDebugOptionsAsync(DebugOptions newOptions)

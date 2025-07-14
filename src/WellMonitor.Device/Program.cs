@@ -37,10 +37,52 @@ var cameraOptions = new CameraOptions
 var host = Host.CreateDefaultBuilder(args)
     .ConfigureWebHostDefaults(webBuilder =>
     {
-        webBuilder.UseKestrel(options =>
+        webBuilder.ConfigureKestrel((context, options) =>
         {
-            // Configure for local access only by default
-            options.ListenLocalhost(5000); // HTTP
+            // Get web configuration from environment/config
+            var config = context.Configuration;
+            
+            var webPort = config.GetValue<int>("Web:Port", 5000);
+            var allowNetworkAccess = config.GetValue<bool>("Web:AllowNetworkAccess", false);
+            var bindAddress = config.GetValue<string>("Web:BindAddress", "127.0.0.1");
+            var enableHttps = config.GetValue<bool>("Web:EnableHttps", false);
+            var httpsPort = config.GetValue<int>("Web:HttpsPort", 5001);
+
+            // Configure HTTP endpoint
+            if (allowNetworkAccess)
+            {
+                if (bindAddress == "0.0.0.0")
+                {
+                    options.ListenAnyIP(webPort);
+                }
+                else
+                {
+                    options.Listen(System.Net.IPAddress.Parse(bindAddress), webPort);
+                }
+            }
+            else
+            {
+                options.ListenLocalhost(webPort);
+            }
+
+            // Configure HTTPS if enabled
+            if (enableHttps)
+            {
+                if (allowNetworkAccess && bindAddress == "0.0.0.0")
+                {
+                    options.ListenAnyIP(httpsPort, listenOptions =>
+                    {
+                        listenOptions.UseHttps();
+                    });
+                }
+                else
+                {
+                    options.ListenLocalhost(httpsPort, listenOptions =>
+                    {
+                        listenOptions.UseHttps();
+                    });
+                }
+            }
         });
         webBuilder.UseWebRoot("wwwroot");
         webBuilder.Configure((context, app) =>
@@ -50,6 +92,24 @@ var host = Host.CreateDefaultBuilder(args)
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+            }
+
+            // Get web options for CORS configuration
+            var webOptionsSource = app.ApplicationServices.GetService<RuntimeWebOptionsSource>();
+            var webOptions = webOptionsSource?.CurrentValue ?? new WebOptions();
+
+            // Configure CORS if origins are specified
+            if (!string.IsNullOrEmpty(webOptions.CorsOrigins))
+            {
+                app.UseCors(builder =>
+                {
+                    var origins = webOptions.CorsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(o => o.Trim()).ToArray();
+                    builder.WithOrigins(origins)
+                           .AllowAnyMethod()
+                           .AllowAnyHeader()
+                           .AllowCredentials();
+                });
             }
 
             app.UseRouting();
@@ -76,6 +136,10 @@ var host = Host.CreateDefaultBuilder(args)
         // Web API services
         services.AddControllers();
         services.AddSignalR();
+        services.AddCors();
+        
+        // Register web options with runtime configuration
+        RegisterWebOptions(services, context.Configuration);
         
         // Register options pattern for services
         services.AddSingleton(gpioOptions);
@@ -108,6 +172,7 @@ var host = Host.CreateDefaultBuilder(args)
         
         // Register web dashboard services (implemented as hosted service)
         services.AddHostedService<RealtimeUpdateService>();
+        services.AddHostedService<WebConfigurationService>();
         
         // Register OCR services
         RegisterOcrServices(services, context.Configuration);
@@ -182,6 +247,31 @@ logger.LogInformation("Startup process: Dependencies → Hardware → Background
 // 6. Main Application Entry Point
 // The Host.RunAsync() method will start all hosted services in the correct order
 await host.RunAsync();
+
+// Helper method to register web options with runtime configuration
+static void RegisterWebOptions(IServiceCollection services, IConfiguration configuration)
+{
+    // Register runtime configuration source for Web options
+    services.AddSingleton<RuntimeWebOptionsSource>(provider =>
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeWebOptionsSource>>();
+        var source = new RuntimeWebOptionsSource(logger);
+        
+        // Initialize with values from configuration
+        var initialOptions = new WebOptions();
+        configuration.GetSection("Web").Bind(initialOptions);
+        source.UpdateOptions(initialOptions);
+        
+        return source;
+    });
+    
+    // Register the runtime options source as the primary IOptionsMonitor<WebOptions>
+    services.AddSingleton<IOptionsMonitor<WebOptions>>(provider => 
+        provider.GetRequiredService<RuntimeWebOptionsSource>());
+    
+    // Configure Web options from configuration as fallback
+    services.Configure<WebOptions>(configuration.GetSection("Web"));
+}
 
 // Helper method to register the secrets service
 static void RegisterSecretsService(IServiceCollection services, IConfiguration configuration)

@@ -44,10 +44,20 @@ $ExtendedConfig = @{
     
     # Debug & Logging Settings
     "debugMode" = $false
-    "debugImageSaveEnabled" = $false
+    "debugImageSaveEnabled" = $true
     "debugImageRetentionDays" = 7
     "logLevel" = "Information"
     "enableVerboseOcrLogging" = $false
+    
+    # Web Dashboard Configuration
+    "webPort" = 5000
+    "webAllowNetworkAccess" = $false
+    "webBindAddress" = "127.0.0.1"
+    "webEnableHttps" = $false
+    "webHttpsPort" = 5001
+    "webCorsOrigins" = ""
+    "webEnableAuthentication" = $false
+    "webAuthUsername" = "admin"
 }
 
 Write-Host "`n📋 Configuration to apply:" -ForegroundColor Cyan

@@ -12,6 +12,7 @@ namespace WellMonitor.Device.Services
         Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger);
         Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
+        Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<PumpAnalysisOptions> FetchPumpAnalysisConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<PowerManagementOptions> FetchPowerManagementConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
@@ -410,6 +411,42 @@ namespace WellMonitor.Device.Services
             {
                 logger.LogError(ex, "Failed to fetch debug configuration from device twin, using defaults");
                 return new DebugOptions();
+            }
+        }
+
+        /// <summary>
+        /// Fetch and apply web dashboard configuration from device twin
+        /// </summary>
+        public async Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        {
+            try
+            {
+                Twin twin = await deviceClient.GetTwinAsync();
+                TwinCollection desired = twin.Properties.Desired;
+
+                var webOptions = new WebOptions();
+
+                // Load web settings from device twin with fallbacks
+                webOptions.Port = desired.Contains("webPort") ? (int)desired["webPort"] : configuration.GetValue("Web:Port", 5000);
+                webOptions.AllowNetworkAccess = desired.Contains("webAllowNetworkAccess") ? (bool)desired["webAllowNetworkAccess"] : configuration.GetValue("Web:AllowNetworkAccess", false);
+                webOptions.BindAddress = desired.Contains("webBindAddress") ? (string)desired["webBindAddress"] : configuration.GetValue("Web:BindAddress", "127.0.0.1");
+                webOptions.EnableHttps = desired.Contains("webEnableHttps") ? (bool)desired["webEnableHttps"] : configuration.GetValue("Web:EnableHttps", false);
+                webOptions.HttpsPort = desired.Contains("webHttpsPort") ? (int)desired["webHttpsPort"] : configuration.GetValue("Web:HttpsPort", 5001);
+                webOptions.CorsOrigins = desired.Contains("webCorsOrigins") ? (string)desired["webCorsOrigins"] : configuration.GetValue("Web:CorsOrigins", "");
+                webOptions.EnableAuthentication = desired.Contains("webEnableAuthentication") ? (bool)desired["webEnableAuthentication"] : configuration.GetValue("Web:EnableAuthentication", false);
+                webOptions.AuthUsername = desired.Contains("webAuthUsername") ? (string)desired["webAuthUsername"] : configuration.GetValue("Web:AuthUsername", "admin");
+
+                // Note: We don't load AuthPassword from device twin for security reasons
+
+                logger.LogInformation("Web configuration loaded from device twin: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}, HTTPS={HTTPS}",
+                    webOptions.Port, webOptions.AllowNetworkAccess, webOptions.BindAddress, webOptions.EnableHttps);
+
+                return webOptions;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to fetch web configuration from device twin, using defaults");
+                return new WebOptions();
             }
         }
 
