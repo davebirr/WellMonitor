@@ -1,0 +1,416 @@
+/* WellMonitor Dashboard Styles */
+
+:root {
+    --primary-color: #0d6efd;
+    --success-color: #198754;
+    --info-color: #0dcaf0;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --dark-color: #212529;
+    --light-color: #f8f9fa;
+}
+
+body {
+    background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Navigation */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Status Indicators */
+.status-indicator {
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    display: inline-block;
+}
+
+.status-indicator.Normal {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.status-indicator.Dry {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.status-indicator.RapidCycling {
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+}
+
+.status-indicator.Idle {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.status-indicator.Off {
+    background-color: #6c757d;
+    color: white;
+}
+
+.status-indicator.Unknown {
+    background-color: var(--light-color);
+    color: var(--dark-color);
+    border: 1px solid #dee2e6;
+}
+
+/* Connection Status */
+.navbar-text .badge {
+    font-size: 0.9rem;
+}
+
+.navbar-text .badge.bg-success {
+    animation: pulse-success 2s infinite;
+}
+
+.navbar-text .badge.bg-danger {
+    animation: pulse-danger 2s infinite;
+}
+
+@keyframes pulse-success {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+@keyframes pulse-danger {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Cards */
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    font-weight: 600;
+}
+
+/* Content Sections */
+.content-section {
+    min-height: 500px;
+}
+
+/* Debug Images */
+.image-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.image-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.image-item:hover {
+    background-color: #f8f9fa;
+}
+
+.image-item.active {
+    background-color: #e3f2fd;
+    border-left: 3px solid var(--primary-color);
+}
+
+.image-thumbnail {
+    width: 50px;
+    height: 30px;
+    object-fit: cover;
+    border-radius: 0.25rem;
+    margin-right: 0.5rem;
+}
+
+.image-info {
+    flex: 1;
+}
+
+.image-info .image-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.image-info .image-meta {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+#image-viewer {
+    max-height: 600px;
+    overflow: auto;
+}
+
+#image-viewer img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+/* ROI Calibration */
+.roi-image-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+.roi-canvas {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+.roi-rectangle {
+    position: absolute;
+    border: 3px solid #ff0000;
+    background-color: rgba(255, 0, 0, 0.1);
+    pointer-events: none;
+    transition: all 0.2s ease-in-out;
+}
+
+.roi-controls .form-range {
+    margin-bottom: 0.25rem;
+}
+
+.roi-controls .form-label {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+/* Camera Positioning */
+.camera-preview {
+    min-height: 400px;
+    background-color: #000;
+    border-radius: 0.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.camera-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+}
+
+.positioning-guide-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.guide-line {
+    position: absolute;
+    background-color: rgba(255, 255, 0, 0.7);
+}
+
+.guide-line.horizontal {
+    height: 2px;
+    left: 0;
+    right: 0;
+}
+
+.guide-line.vertical {
+    width: 2px;
+    top: 0;
+    bottom: 0;
+}
+
+/* Activity Log */
+.activity-log {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.75rem;
+    font-size: 0.875rem;
+}
+
+.activity-icon.success {
+    background-color: rgba(25, 135, 84, 0.1);
+    color: var(--success-color);
+}
+
+.activity-icon.warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: var(--warning-color);
+}
+
+.activity-icon.danger {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--danger-color);
+}
+
+.activity-content {
+    flex: 1;
+}
+
+.activity-title {
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.activity-time {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Checklist */
+.checklist .form-check-input:checked + .form-check-label {
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+.checklist .form-check-input:not(:checked) + .form-check-label {
+    color: #6c757d;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .roi-image-container {
+        text-align: center;
+    }
+    
+    .camera-preview {
+        min-height: 300px;
+    }
+}
+
+/* Loading States */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-in-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Chart Container */
+#current-chart {
+    max-height: 300px;
+}
+
+/* Alert Styles */
+.alert-success {
+    border-color: rgba(25, 135, 84, 0.2);
+    background-color: rgba(25, 135, 84, 0.05);
+}
+
+.alert-warning {
+    border-color: rgba(255, 193, 7, 0.2);
+    background-color: rgba(255, 193, 7, 0.05);
+}
+
+.alert-danger {
+    border-color: rgba(220, 53, 69, 0.2);
+    background-color: rgba(220, 53, 69, 0.05);
+}
+
+.alert-info {
+    border-color: rgba(13, 202, 240, 0.2);
+    background-color: rgba(13, 202, 240, 0.05);
+}
+
+/* Custom Scrollbars */
+.image-list::-webkit-scrollbar,
+.activity-log::-webkit-scrollbar {
+    width: 6px;
+}
+
+.image-list::-webkit-scrollbar-track,
+.activity-log::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.image-list::-webkit-scrollbar-thumb,
+.activity-log::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.image-list::-webkit-scrollbar-thumb:hover,
+.activity-log::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

@@ -6,9 +6,11 @@ using Microsoft.Extensions.Options;
 using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Devices.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting;
 using WellMonitor.Device.Services;
 using WellMonitor.Device.Models;
 using WellMonitor.Device.Data;
+using WellMonitor.Device.Hubs;
 
 // 1. Dependency Injection: Register all services and logging
 // Register options for GpioService and CameraService
@@ -33,6 +35,34 @@ var cameraOptions = new CameraOptions
 };
 
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureWebHostDefaults(webBuilder =>
+    {
+        webBuilder.UseKestrel(options =>
+        {
+            // Configure for local access only by default
+            options.ListenLocalhost(5000); // HTTP
+        });
+        webBuilder.UseWebRoot("wwwroot");
+        webBuilder.Configure((context, app) =>
+        {
+            var env = context.HostingEnvironment;
+            
+            if (env.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+
+            app.UseRouting();
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+                endpoints.MapHub<DeviceStatusHub>("/devicestatushub");
+            });
+        });
+    })
     .ConfigureAppConfiguration((context, config) =>
     {
         // Load .env file if it exists (for development)
@@ -43,6 +73,10 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureServices((context, services) =>
     {
+        // Web API services
+        services.AddControllers();
+        services.AddSignalR();
+        
         // Register options pattern for services
         services.AddSingleton(gpioOptions);
         services.AddSingleton(cameraOptions);
@@ -54,6 +88,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton(new PumpAnalysisOptions());
         services.AddSingleton(new PowerManagementOptions());
         services.AddSingleton(new StatusDetectionOptions());
+        services.AddSingleton(new RegionOfInterestOptions
+        {
+            RoiPercent = new RoiCoordinates { X = 10, Y = 10, Width = 80, Height = 80 }
+        });
         
         // Register Entity Framework DbContext
         services.AddDbContext<WellMonitorDbContext>(options =>
@@ -67,6 +105,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ISyncService, SyncService>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
         services.AddSingleton<IDeviceTwinService, DeviceTwinService>();
+        
+        // Register web dashboard services (implemented as hosted service)
+        services.AddHostedService<RealtimeUpdateService>();
         
         // Register OCR services
         RegisterOcrServices(services, context.Configuration);
