@@ -130,9 +130,12 @@ az account show
 gh auth login
 # Select:
 # - GitHub.com
-# - HTTPS or SSH (depending on your preference)
+# - HTTPS (recommended - more reliable than SSH)
 # - Yes (authenticate Git with GitHub credentials)
 # - Login with a web browser or paste token
+
+# Configure git to use GitHub CLI for authentication
+gh auth setup-git
 
 # Verify GitHub authentication
 gh auth status

@@ -238,7 +238,39 @@ ssh ${WELLMONITOR_PI_USERNAME}@${WELLMONITOR_PI_HOSTNAME}
 
 ### GitHub Authentication Setup
 
-**Option 1: SSH Key Authentication (Recommended):**
+**Option 1: GitHub CLI with HTTPS (Recommended):**
+```bash
+# Install GitHub CLI
+sudo apt update
+sudo apt install gh
+
+# Authenticate using device flow (works great in WSL)
+gh auth login
+
+# Select:
+# - GitHub.com
+# - HTTPS (recommended)
+# - Yes (authenticate Git with GitHub credentials)
+# - Login with a web browser
+
+# Follow the device flow instructions
+
+# Configure git to use GitHub CLI for authentication
+gh auth setup-git
+
+# Verify authentication works
+gh auth status
+git ls-remote https://github.com/davebirr/WellMonitor.git
+```
+
+**Why HTTPS + GitHub CLI is recommended:**
+- ✅ No SSH key management required
+- ✅ Works consistently across all environments (WSL, Docker, CI/CD)
+- ✅ Automatic credential management via GitHub CLI
+- ✅ Easy to troubleshoot authentication issues
+- ✅ Supports token rotation and 2FA seamlessly
+
+**Option 2: SSH Key Authentication (Advanced Users):**
 ```bash
 # Generate SSH key for GitHub (if you don't already have one)
 ssh-keygen -t ed25519 -C "your-email@example.com" -f ~/.ssh/id_ed25519_github
@@ -250,8 +282,8 @@ ssh-add ~/.ssh/id_ed25519_github
 # Display public key to copy to GitHub
 cat ~/.ssh/id_ed25519_github.pub
 
-# Configure Git to use SSH
-git config --global url."git@github.com:".insteadOf "https://github.com/"
+# ⚠️ DO NOT use this global URL rewrite - it causes authentication issues:
+# git config --global url."git@github.com:".insteadOf "https://github.com/"
 ```
 
 **Add the public key to GitHub:**
@@ -260,23 +292,31 @@ git config --global url."git@github.com:".insteadOf "https://github.com/"
 3. Paste the public key content
 4. Test: `ssh -T git@github.com`
 
-**Option 2: GitHub CLI with Device Flow:**
-```bash
-# Install GitHub CLI
-sudo apt update
-sudo apt install gh
+**Troubleshooting Authentication Issues:**
 
-# Authenticate using device flow (works great in WSL)
-gh auth login
+If you encounter "Permission denied (publickey)" errors:
 
-# Select:
-# - GitHub.com
-# - HTTPS
-# - Yes (authenticate Git with GitHub credentials)
-# - Login with a web browser
+1. **Check for problematic git configuration:**
+   ```bash
+   git config --list | grep url
+   # If you see: url.git@github.com:.insteadof=https://github.com/
+   # Remove it: git config --global --unset url.git@github.com:.insteadof
+   ```
 
-# Follow the device flow instructions
-```
+2. **Switch from SSH to HTTPS:**
+   ```bash
+   # Change remote URL to HTTPS
+   git remote set-url origin https://github.com/davebirr/WellMonitor.git
+   # Verify the change
+   git remote -v
+   ```
+
+3. **Re-authenticate with GitHub CLI:**
+   ```bash
+   gh auth logout
+   gh auth login
+   gh auth setup-git
+   ```
 
 **Option 3: Personal Access Token:**
 ```bash
