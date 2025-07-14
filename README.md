@@ -21,7 +21,8 @@ This project is a .NET 8 application written in C# for the Raspberry Pi 4B. It m
 
 ### Quick Access
 - **🚀 [Installation Guide](docs/deployment/installation-guide.md)** - Complete setup from development to production
-- **⚙️ [Configuration Guide](docs/configuration/configuration-guide.md)** - Device twin and system configuration
+- **⚙️ [Configuration Guide](docs/configuration/configuration-guide.md)** - Device twin and system configuration  
+- **🔧 [Deployment Configuration](docs/configuration/deployment-configuration.md)** - Environment variables and deployment setup
 - **🔧 [Service Management](docs/deployment/service-management.md)** - Service operations and monitoring
 - **🎥 [Camera & OCR Setup](docs/configuration/camera-ocr-setup.md)** - Hardware and image processing optimization
 
@@ -35,6 +36,7 @@ docs/
 │   └── troubleshooting-guide.md # Problem solving
 ├── configuration/               # ⚙️ Settings and integration
 │   ├── configuration-guide.md  # Device twin configuration
+│   ├── deployment-configuration.md # Environment variables and deployment setup
 │   ├── camera-ocr-setup.md    # Hardware optimization
 │   └── azure-integration.md   # Cloud services setup
 ├── development/                 # 🔧 Development environment

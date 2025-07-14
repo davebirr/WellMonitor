@@ -9,6 +9,8 @@ src/WellMonitor.Device/secrets.json
 .env
 .env.local
 .env.*.local
+deployment-config.sh
+deployment-config.*.sh
 
 # Ignore build outputs
 bin/
