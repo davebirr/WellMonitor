@@ -15,10 +15,10 @@ namespace WellMonitor.Device.Services
     public class CameraService : ICameraService
     {
         private readonly ILogger<CameraService> _logger;
-        private readonly CameraOptions _cameraOptions;
+        private readonly IOptionsMonitor<CameraOptions> _cameraOptions;
         private readonly IOptionsMonitor<DebugOptions> _debugOptions;
 
-        public CameraService(ILogger<CameraService> logger, CameraOptions cameraOptions, IOptionsMonitor<DebugOptions> debugOptions)
+        public CameraService(ILogger<CameraService> logger, IOptionsMonitor<CameraOptions> cameraOptions, IOptionsMonitor<DebugOptions> debugOptions)
         {
             _logger = logger;
             _cameraOptions = cameraOptions;
@@ -40,56 +40,19 @@ namespace WellMonitor.Device.Services
                 
                 try
                 {
-                    // Build the libcamera-still command
+                    // Build the camera command arguments
                     var arguments = BuildCameraArguments(tempImagePath);
                     
-                    _logger.LogDebug("Executing camera command: libcamera-still {Arguments}", arguments);
-                    
-                    // Execute the camera command
-                    var process = new Process
+                    // Try libcamera-still first, then rpicam-still as fallback
+                    var success = await TryCameraCommand("libcamera-still", arguments, tempImagePath);
+                    if (!success)
                     {
-                        StartInfo = new ProcessStartInfo
+                        _logger.LogWarning("libcamera-still failed, trying rpicam-still as fallback...");
+                        success = await TryCameraCommand("rpicam-still", arguments, tempImagePath);
+                        if (!success)
                         {
-                            FileName = "libcamera-still",
-                            Arguments = arguments,
-                            UseShellExecute = false,
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            CreateNoWindow = true
+                            throw new InvalidOperationException("Both libcamera-still and rpicam-still failed to capture image");
                         }
-                    };
-
-                    var startTime = DateTime.UtcNow;
-                    process.Start();
-                    
-                    using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(_cameraOptions.TimeoutMs));
-                    
-                    try
-                    {
-                        await process.WaitForExitAsync(cts.Token);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        _logger.LogError("Camera capture timed out after {TimeoutMs}ms", _cameraOptions.TimeoutMs);
-                        process.Kill();
-                        throw new TimeoutException($"Camera capture timed out after {_cameraOptions.TimeoutMs}ms");
-                    }
-
-                    var duration = DateTime.UtcNow - startTime;
-                    _logger.LogDebug("Camera capture completed in {Duration}ms", duration.TotalMilliseconds);
-
-                    if (process.ExitCode != 0)
-                    {
-                        var error = await process.StandardError.ReadToEndAsync();
-                        _logger.LogError("Camera capture failed with exit code {ExitCode}: {Error}", process.ExitCode, error);
-                        throw new InvalidOperationException($"Camera capture failed: {error}");
-                    }
-
-                    // Check if image file was created
-                    if (!File.Exists(tempImagePath))
-                    {
-                        _logger.LogError("Camera capture completed but no image file was created");
-                        throw new InvalidOperationException("Camera capture completed but no image file was created");
                     }
 
                     // Read the captured image
@@ -108,15 +71,16 @@ namespace WellMonitor.Device.Services
 
                     // Save debug copy if both debug mode is enabled AND debug path is configured
                     var debugOptions = _debugOptions.CurrentValue;
+                    var cameraOptions = _cameraOptions.CurrentValue;
                     _logger.LogInformation("Debug image check: ImageSaveEnabled={Enabled}, DebugImagePath='{Path}'", 
-                        debugOptions.ImageSaveEnabled, _cameraOptions.DebugImagePath ?? "NULL");
+                        debugOptions.ImageSaveEnabled, cameraOptions.DebugImagePath ?? "NULL");
                     
-                    if (debugOptions.ImageSaveEnabled && !string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                    if (debugOptions.ImageSaveEnabled && !string.IsNullOrEmpty(cameraOptions.DebugImagePath))
                     {
                         _logger.LogInformation("Saving debug image...");
                         await SaveDebugImageAsync(imageBytes);
                     }
-                    else if (debugOptions.ImageSaveEnabled && string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                    else if (debugOptions.ImageSaveEnabled && string.IsNullOrEmpty(cameraOptions.DebugImagePath))
                     {
                         _logger.LogWarning("Debug image saving is enabled but cameraDebugImagePath is not configured in device twin");
                     }
@@ -155,81 +119,97 @@ namespace WellMonitor.Device.Services
         /// </summary>
         private string BuildCameraArguments(string outputPath)
         {
+            var cameraOptions = _cameraOptions.CurrentValue;
+            
             var args = new List<string>
             {
                 "--output", $"\"{outputPath}\"",
-                "--width", _cameraOptions.Width.ToString(),
-                "--height", _cameraOptions.Height.ToString(),
-                "--quality", _cameraOptions.Quality.ToString(),
-                "--timeout", _cameraOptions.WarmupTimeMs.ToString(),
+                "--width", cameraOptions.Width.ToString(),
+                "--height", cameraOptions.Height.ToString(),
+                "--quality", cameraOptions.Quality.ToString(),
+                "--timeout", cameraOptions.WarmupTimeMs.ToString(),
                 "--encoding", "jpg"
             };
 
             // Add immediate flag only if warmup time is short (reduces grey square issues)
-            if (_cameraOptions.WarmupTimeMs <= 2000)
+            if (cameraOptions.WarmupTimeMs <= 2000)
             {
                 args.Add("--immediate");
-                _logger.LogDebug("Using immediate capture (warmup: {WarmupMs}ms)", _cameraOptions.WarmupTimeMs);
+                _logger.LogDebug("Using immediate capture (warmup: {WarmupMs}ms)", cameraOptions.WarmupTimeMs);
             }
             else
             {
-                _logger.LogDebug("Using normal capture with warmup: {WarmupMs}ms", _cameraOptions.WarmupTimeMs);
+                _logger.LogDebug("Using normal capture with warmup: {WarmupMs}ms", cameraOptions.WarmupTimeMs);
             }
 
             // Add rotation if specified
-            if (_cameraOptions.Rotation != 0)
+            if (cameraOptions.Rotation != 0)
             {
                 args.Add("--rotation");
-                args.Add(_cameraOptions.Rotation.ToString());
+                args.Add(cameraOptions.Rotation.ToString());
             }
 
             // Add brightness adjustment
-            if (_cameraOptions.Brightness != 50)
+            if (cameraOptions.Brightness != 50)
             {
                 args.Add("--brightness");
-                args.Add((_cameraOptions.Brightness / 100.0).ToString("F2"));
+                args.Add((cameraOptions.Brightness / 100.0).ToString("F2"));
             }
 
             // Add contrast adjustment
-            if (_cameraOptions.Contrast != 0)
+            if (cameraOptions.Contrast != 0)
             {
                 args.Add("--contrast");
-                args.Add((_cameraOptions.Contrast / 100.0).ToString("F2"));
+                args.Add((cameraOptions.Contrast / 100.0).ToString("F2"));
             }
 
             // Add saturation adjustment
-            if (_cameraOptions.Saturation != 0)
+            if (cameraOptions.Saturation != 0)
             {
                 args.Add("--saturation");
-                args.Add((_cameraOptions.Saturation / 100.0).ToString("F2"));
+                args.Add((cameraOptions.Saturation / 100.0).ToString("F2"));
             }
 
             // Add gain/ISO for low light situations
-            if (_cameraOptions.Gain > 1.0)
+            if (cameraOptions.Gain > 1.0)
             {
                 args.Add("--gain");
-                args.Add(_cameraOptions.Gain.ToString("F1"));
-                _logger.LogDebug("Using high gain for low light: {Gain}", _cameraOptions.Gain);
+                args.Add(cameraOptions.Gain.ToString("F1"));
+                _logger.LogDebug("Using high gain for low light: {Gain}", cameraOptions.Gain);
             }
 
             // Add shutter speed for low light (manual exposure)
-            if (_cameraOptions.ShutterSpeedMicroseconds > 0)
+            if (cameraOptions.ShutterSpeedMicroseconds > 0)
             {
                 args.Add("--shutter");
-                args.Add(_cameraOptions.ShutterSpeedMicroseconds.ToString());
-                _logger.LogDebug("Using manual shutter speed: {ShutterSpeed}μs", _cameraOptions.ShutterSpeedMicroseconds);
+                args.Add(cameraOptions.ShutterSpeedMicroseconds.ToString());
+                _logger.LogDebug("Using manual shutter speed: {ShutterSpeed}μs", cameraOptions.ShutterSpeedMicroseconds);
             }
 
-            // Disable auto exposure if manual shutter is set
-            if (_cameraOptions.ShutterSpeedMicroseconds > 0 || !_cameraOptions.AutoExposure)
+            // Disable auto exposure if manual shutter is set (only if manual shutter is actually set)
+            if (cameraOptions.ShutterSpeedMicroseconds > 0)
             {
                 args.Add("--exposure");
                 args.Add("off");
-                _logger.LogDebug("Auto exposure disabled for manual control");
+                _logger.LogDebug("Auto exposure disabled for manual shutter control");
+            }
+            else if (!cameraOptions.AutoExposure)
+            {
+                // Try to set exposure mode more carefully
+                try
+                {
+                    args.Add("--exposure");
+                    args.Add("normal");  // Use 'normal' instead of 'off' for better compatibility
+                    _logger.LogDebug("Auto exposure set to normal mode");
+                }
+                catch
+                {
+                    _logger.LogWarning("Could not set exposure mode - using default");
+                }
             }
 
             // Disable auto white balance if specified (useful for LED color consistency)
-            if (!_cameraOptions.AutoWhiteBalance)
+            if (!cameraOptions.AutoWhiteBalance)
             {
                 args.Add("--awb");
                 args.Add("off");
@@ -237,7 +217,7 @@ namespace WellMonitor.Device.Services
             }
 
             // Disable preview unless explicitly enabled
-            if (!_cameraOptions.EnablePreview)
+            if (!cameraOptions.EnablePreview)
             {
                 args.Add("--nopreview");
             }
@@ -252,13 +232,14 @@ namespace WellMonitor.Device.Services
         {
             try
             {
-                if (string.IsNullOrEmpty(_cameraOptions.DebugImagePath))
+                var cameraOptions = _cameraOptions.CurrentValue;
+                if (string.IsNullOrEmpty(cameraOptions.DebugImagePath))
                     return;
 
                 // Make path relative to application directory
-                var debugDirectory = Path.IsPathRooted(_cameraOptions.DebugImagePath) 
-                    ? _cameraOptions.DebugImagePath 
-                    : Path.Combine(AppContext.BaseDirectory, _cameraOptions.DebugImagePath);
+                var debugDirectory = Path.IsPathRooted(cameraOptions.DebugImagePath) 
+                    ? cameraOptions.DebugImagePath 
+                    : Path.Combine(AppContext.BaseDirectory, cameraOptions.DebugImagePath);
 
                 // Create debug directory if it doesn't exist
                 Directory.CreateDirectory(debugDirectory);
@@ -359,6 +340,75 @@ namespace WellMonitor.Device.Services
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "Advanced image validation unavailable - skipping");
+            }
+        }
+
+        /// <summary>
+        /// Tries to execute a camera command with the given arguments
+        /// </summary>
+        /// <param name="command">Camera command (libcamera-still or rpicam-still)</param>
+        /// <param name="arguments">Command arguments</param>
+        /// <param name="expectedOutputPath">Expected output file path</param>
+        /// <returns>True if successful, false otherwise</returns>
+        private async Task<bool> TryCameraCommand(string command, string arguments, string expectedOutputPath)
+        {
+            try
+            {
+                var cameraOptions = _cameraOptions.CurrentValue;
+                _logger.LogDebug("Executing camera command: {Command} {Arguments}", command, arguments);
+                
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = command,
+                        Arguments = arguments,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+
+                var startTime = DateTime.UtcNow;
+                process.Start();
+                
+                using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(cameraOptions.TimeoutMs));
+                
+                try
+                {
+                    await process.WaitForExitAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogError("{Command} capture timed out after {TimeoutMs}ms", command, cameraOptions.TimeoutMs);
+                    process.Kill();
+                    return false;
+                }
+
+                var duration = DateTime.UtcNow - startTime;
+                _logger.LogDebug("{Command} capture completed in {Duration}ms", command, duration.TotalMilliseconds);
+
+                if (process.ExitCode != 0)
+                {
+                    var error = await process.StandardError.ReadToEndAsync();
+                    _logger.LogWarning("{Command} failed with exit code {ExitCode}: {Error}", command, process.ExitCode, error);
+                    return false;
+                }
+
+                // Check if image file was created
+                if (!File.Exists(expectedOutputPath))
+                {
+                    _logger.LogWarning("{Command} completed but no image file was created", command);
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "{Command} execution failed", command);
+                return false;
             }
         }
     }

@@ -13,25 +13,9 @@ using WellMonitor.Device.Data;
 using WellMonitor.Device.Hubs;
 
 // 1. Dependency Injection: Register all services and logging
-// Register options for GpioService and CameraService
 var gpioOptions = new GpioOptions
 {
-    RelayDebounceMs = 500 // default, will be overwritten below
-};
-
-var cameraOptions = new CameraOptions
-{
-    Width = 1920,
-    Height = 1080,
-    Quality = 85,
-    TimeoutMs = 30000,
-    WarmupTimeMs = 2000,
-    Rotation = 0,
-    Brightness = 50,
-    Contrast = 0,
-    Saturation = 0,
-    EnablePreview = false,
-    DebugImagePath = "debug_images" // Relative to application directory
+    RelayDebounceMs = 500 // default, will be overwritten by device twin
 };
 
 var host = Host.CreateDefaultBuilder(args)
@@ -154,7 +138,9 @@ var host = Host.CreateDefaultBuilder(args)
         
         // Register options pattern for services
         services.AddSingleton(gpioOptions);
-        services.AddSingleton(cameraOptions);
+        
+        // Register camera options with runtime configuration
+        RegisterCameraOptions(services, context.Configuration);
         
         // Register additional options classes
         services.AddSingleton(new AlertOptions());
@@ -312,8 +298,17 @@ static void RegisterDebugOptions(IServiceCollection services, IConfiguration con
     // Register the runtime options source as the primary IOptionsMonitor<DebugOptions>
     services.AddSingleton<IOptionsMonitor<DebugOptions>>(provider => provider.GetRequiredService<RuntimeDebugOptionsSource>());
     
-    // Register the runtime configuration service (needs both OCR and Debug sources)
-    services.AddSingleton<IRuntimeConfigurationService, RuntimeConfigurationService>();
+    // Register the runtime configuration service (needs OCR, Debug, Web, and Camera sources)
+    services.AddSingleton<IRuntimeConfigurationService>(provider => 
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeConfigurationService>>();
+        var ocrSource = provider.GetRequiredService<RuntimeOcrOptionsSource>();
+        var debugSource = provider.GetRequiredService<RuntimeDebugOptionsSource>();
+        var webSource = provider.GetRequiredService<RuntimeWebOptionsSource>();
+        var cameraSource = provider.GetRequiredService<RuntimeCameraOptionsSource>();
+        
+        return new RuntimeConfigurationService(logger, ocrSource, debugSource, webSource, cameraSource);
+    });
     
     // Configure Debug options from configuration as fallback
     services.Configure<DebugOptions>(configuration.GetSection("Debug"));
@@ -356,6 +351,51 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     
     // Register OCR diagnostics service
     services.AddSingleton<OcrDiagnosticsService>();
+}
+
+// Helper method to register camera options with runtime configuration
+static void RegisterCameraOptions(IServiceCollection services, IConfiguration configuration)
+{
+    // Register runtime configuration source for Camera options
+    services.AddSingleton<RuntimeCameraOptionsSource>(provider =>
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeCameraOptionsSource>>();
+        var source = new RuntimeCameraOptionsSource(logger);
+        
+        // Initialize with safe default values for newer camera stack
+        var initialOptions = new CameraOptions
+        {
+            Width = 1920,
+            Height = 1080,
+            Quality = 85,
+            TimeoutMs = 15000,
+            WarmupTimeMs = 2000,
+            Rotation = 0,
+            Brightness = 50,
+            Contrast = 0,
+            Saturation = 0,
+            EnablePreview = false,
+            DebugImagePath = "debug_images",
+            // Safe defaults to avoid conflicts with newer camera stack
+            Gain = 1.0,
+            ShutterSpeedMicroseconds = 0,
+            AutoExposure = true,
+            AutoWhiteBalance = true
+        };
+        
+        // Override with configuration values if present
+        configuration.GetSection("Camera").Bind(initialOptions);
+        source.UpdateOptions(initialOptions);
+        
+        return source;
+    });
+    
+    // Register the runtime options source as the primary IOptionsMonitor<CameraOptions>
+    services.AddSingleton<IOptionsMonitor<CameraOptions>>(provider => 
+        provider.GetRequiredService<RuntimeCameraOptionsSource>());
+    
+    // Configure Camera options from configuration as fallback
+    services.Configure<CameraOptions>(configuration.GetSection("Camera"));
 }
 
 // Simple .env file loader
