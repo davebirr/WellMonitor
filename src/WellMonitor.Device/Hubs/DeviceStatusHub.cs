@@ -57,6 +57,11 @@ namespace WellMonitor.Device.Hubs
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<RealtimeUpdateService> _logger;
+        private readonly TimeSpan _updateInterval = TimeSpan.FromSeconds(30); // Reduced from 5 seconds to 30 seconds
+        
+        // Cache to reduce database queries
+        private DateTime _lastReadingQueryTime = DateTime.MinValue;
+        private object? _cachedPumpStatus = null;
 
         public RealtimeUpdateService(
             IServiceProvider serviceProvider,
@@ -78,22 +83,30 @@ namespace WellMonitor.Device.Hubs
                     var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<DeviceStatusHub>>();
                     var databaseService = scope.ServiceProvider.GetRequiredService<IDatabaseService>();
 
-                    // Send periodic status updates
-                    var recentReadings = await databaseService.GetReadingsAsync(
-                        DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow);
-                    var latestReading = recentReadings.OrderByDescending(r => r.TimestampUtc).FirstOrDefault();
-                    
-                    if (latestReading != null)
+                    // Send periodic status updates (with caching to reduce DB queries)
+                    var now = DateTime.UtcNow;
+                    if (_cachedPumpStatus == null || (now - _lastReadingQueryTime).TotalMinutes >= 2)
                     {
-                        var pumpStatus = new
+                        var recentReadings = await databaseService.GetReadingsAsync(
+                            DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow);
+                        var latestReading = recentReadings.OrderByDescending(r => r.TimestampUtc).FirstOrDefault();
+                        
+                        if (latestReading != null)
                         {
-                            Status = latestReading.Status,
-                            CurrentDraw = latestReading.CurrentAmps,
-                            PowerConsumption = Math.Round(latestReading.CurrentAmps * 240 / 1000, 2), // Approximate power
-                            LastReading = latestReading.TimestampUtc
-                        };
+                            _cachedPumpStatus = new
+                            {
+                                Status = latestReading.Status,
+                                CurrentDraw = latestReading.CurrentAmps,
+                                PowerConsumption = Math.Round(latestReading.CurrentAmps * 240 / 1000, 2), // Approximate power
+                                LastReading = latestReading.TimestampUtc
+                            };
+                        }
+                        _lastReadingQueryTime = now;
+                    }
 
-                        await hubContext.Clients.Group("updates").SendAsync("UpdatePumpStatus", pumpStatus, stoppingToken);
+                    if (_cachedPumpStatus != null)
+                    {
+                        await hubContext.Clients.Group("updates").SendAsync("UpdatePumpStatus", _cachedPumpStatus, stoppingToken);
                     }
 
                     // Send system status
@@ -108,8 +121,8 @@ namespace WellMonitor.Device.Hubs
 
                     await hubContext.Clients.Group("updates").SendAsync("UpdateSystemStatus", systemStatus, stoppingToken);
 
-                    // Wait before next update
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                    // Wait before next update - using configurable interval to reduce database load
+                    await Task.Delay(_updateInterval, stoppingToken);
                 }
                 catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
                 {
