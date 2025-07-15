@@ -154,10 +154,28 @@ var host = Host.CreateDefaultBuilder(args)
             RoiPercent = new RoiCoordinates { X = 10, Y = 10, Width = 80, Height = 80 }
         });
         
-        // Register Entity Framework DbContext
+        // Register Entity Framework DbContext with explicit logging suppression
         services.AddDbContext<WellMonitorDbContext>(options =>
+        {
             options.UseSqlite(context.Configuration.GetConnectionString("DefaultConnection") 
-                ?? "Data Source=wellmonitor.db"));
+                ?? "Data Source=wellmonitor.db");
+            
+            // Explicitly suppress Entity Framework logging noise
+            options.EnableSensitiveDataLogging(false);
+            options.EnableServiceProviderCaching(true);
+            options.EnableDetailedErrors(false);
+        });
+        
+        // Additional EF logging suppression at service level
+        services.Configure<LoggerFilterOptions>(options =>
+        {
+            // Suppress Entity Framework logging at the provider level
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Database.Command", LogLevel.None, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Database.Transaction", LogLevel.None, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Query", LogLevel.None, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Infrastructure", LogLevel.Error, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore", LogLevel.Warning, null));
+        });
         
         // Register core services
         services.AddSingleton<IGpioService, GpioService>();
