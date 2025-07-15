@@ -120,6 +120,17 @@ var host = Host.CreateDefaultBuilder(args)
             {
                 endpoints.MapControllers();
                 endpoints.MapHub<DeviceStatusHub>("/devicestatushub");
+                
+                // Add a simple health check at root for easy testing
+                endpoints.MapGet("/health", () => 
+                {
+                    return Results.Ok(new { 
+                        status = "healthy", 
+                        timestamp = DateTime.UtcNow,
+                        service = "WellMonitor",
+                        version = "1.0.0"
+                    });
+                });
             });
         });
     })
