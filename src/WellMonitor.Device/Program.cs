@@ -362,28 +362,10 @@ static void RegisterCameraOptions(IServiceCollection services, IConfiguration co
         var logger = provider.GetRequiredService<ILogger<RuntimeCameraOptionsSource>>();
         var source = new RuntimeCameraOptionsSource(logger);
         
-        // Initialize with safe default values for newer camera stack
-        var initialOptions = new CameraOptions
-        {
-            Width = 1920,
-            Height = 1080,
-            Quality = 85,
-            TimeoutMs = 15000,
-            WarmupTimeMs = 2000,
-            Rotation = 0,
-            Brightness = 50,
-            Contrast = 0,
-            Saturation = 0,
-            EnablePreview = false,
-            DebugImagePath = "debug_images",
-            // Safe defaults to avoid conflicts with newer camera stack
-            Gain = 1.0,
-            ShutterSpeedMicroseconds = 0,
-            AutoExposure = true,
-            AutoWhiteBalance = true
-        };
+        // Initialize with minimal default values - device twin will override these
+        var initialOptions = new CameraOptions();
         
-        // Override with configuration values if present
+        // Only override with configuration values if present
         configuration.GetSection("Camera").Bind(initialOptions);
         source.UpdateOptions(initialOptions);
         

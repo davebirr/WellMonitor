@@ -184,15 +184,43 @@ namespace WellMonitor.Device.Services
                     var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
                     await runtimeConfigService.UpdateDebugOptionsAsync(debugOptions);
                     
-                    _logger.LogInformation("Debug configuration loaded and applied from device twin: ImageSaveEnabled={ImageSaveEnabled}, DebugMode={DebugMode}", 
+                    _logger.LogInformation("✅ Debug configuration loaded and applied from device twin: ImageSaveEnabled={ImageSaveEnabled}, DebugMode={DebugMode}", 
                         debugOptions.ImageSaveEnabled, debugOptions.DebugMode);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to load Debug configuration from device twin, using defaults");
+                    _logger.LogWarning(ex, "❌ Failed to load Debug configuration from device twin, using defaults");
+                }
+
+                // Load Camera configuration from device twin
+                try
+                {
+                    _logger.LogInformation("🔄 Loading camera configuration from device twin...");
+                    
+                    var gpio = scope.ServiceProvider.GetRequiredService<GpioOptions>();
+                    var camera = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<CameraOptions>>().CurrentValue;
+                    
+                    // This method updates the camera options in-place from device twin
+                    await deviceTwinService.FetchAndApplyConfigAsync(
+                        deviceClient,
+                        configuration,
+                        gpio,
+                        camera,
+                        _logger);
+                    
+                    // Apply the updated Camera configuration to runtime configuration service
+                    var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
+                    await runtimeConfigService.UpdateCameraOptionsAsync(camera);
+                    
+                    _logger.LogInformation("✅ Camera configuration loaded and applied from device twin: Width={Width}, Height={Height}, DebugPath='{DebugPath}'", 
+                        camera.Width, camera.Height, camera.DebugImagePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "❌ Failed to load Camera configuration from device twin, using defaults");
                 }
                 
-                _logger.LogInformation("Device twin configuration loaded successfully");
+                _logger.LogInformation("✅ Device twin configuration loading completed");
                 
                 // Store the device client for use by other services
                 // TODO: Consider using a singleton pattern for device client management

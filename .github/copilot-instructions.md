@@ -89,6 +89,89 @@ The Raspberry Pi is registered with Azure IoT Hub and performs the following tas
 - Implement a debounce mechanism to avoid rapid toggling.
 - Log all relay actions with timestamps.
 
+## CRITICAL: Camera Service Permission Fix
+
+**⚠️ RECURRING ISSUE**: The camera consistently fails with "ERROR: *** no cameras available ***" when running under systemd service, despite working perfectly when run manually. This is due to systemd security restrictions blocking camera access.
+
+**ROOT CAUSE**: Systemd's security restrictions (`ProtectHome=yes`, `ProtectSystem=strict`) prevent the camera subsystem from accessing necessary system resources, even though device permissions are correctly set.
+
+**PERMANENT FIX**: The systemd service must use these specific settings for camera access:
+```systemd
+# CAMERA ACCESS REQUIREMENTS - DO NOT CHANGE
+ProtectHome=no          # Camera initialization requires home access
+ProtectSystem=no        # Camera needs broad system access
+DevicePolicy=auto       # Allow automatic device access
+ReadWritePaths=/tmp     # Camera needs temp file access
+ReadWritePaths=/run     # Camera runtime directory access
+ReadWritePaths=/dev/shm # Shared memory access
+
+# REQUIRED DEVICE PERMISSIONS
+DeviceAllow=char-* rw   # Allow all character devices
+DeviceAllow=block-* rw  # Allow all block devices (comprehensive)
+SupplementaryGroups=gpio video render dialout input audio users
+```
+
+**COMPLETE SYSTEMD SERVICE CONFIGURATION** (camera-optimized):
+```systemd
+[Unit]
+Description=WellMonitor Device Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=exec
+User=davidb
+Group=davidb
+WorkingDirectory=/var/lib/wellmonitor
+ExecStart=/opt/wellmonitor/WellMonitor.Device
+Restart=always
+RestartSec=10
+EnvironmentFile=/etc/wellmonitor/environment
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wellmonitor
+
+# CAMERA ACCESS REQUIREMENTS
+NoNewPrivileges=yes
+ProtectHome=no
+ProtectSystem=no
+DevicePolicy=auto
+ReadWritePaths=/var/lib/wellmonitor
+ReadWritePaths=/var/log/wellmonitor
+ReadWritePaths=/tmp
+ReadWritePaths=/run
+ReadWritePaths=/dev/shm
+ReadOnlyPaths=/etc/wellmonitor
+DeviceAllow=char-* rw
+DeviceAllow=block-* rw
+SupplementaryGroups=gpio video render dialout input audio users
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**SYMPTOMS of this issue**:
+- Camera works manually: `libcamera-hello --list-cameras` succeeds
+- Service logs show: "ERROR: *** no cameras available ***"
+- Service logs show: "Failed to open media device at /dev/media*: Operation not permitted"
+- Service logs show: "Both libcamera-still and rpicam-still failed to capture image"
+
+**DIAGNOSIS SCRIPT**: Use `scripts/diagnostics/check-camera-permissions.sh` to verify
+**FIX SCRIPT**: Use `scripts/fixes/ultimate-camera-logging-fix.sh` to apply comprehensive fix
+
+**PREVENTION**: Always use the camera-optimized systemd service configuration. Never use `ProtectSystem=strict` or restrictive device policies with camera services.
+
+**LOGGING NOISE FIX**: Entity Framework SQL logging floods production logs. Suppress with:
+```json
+"Logging": {
+  "LogLevel": {
+    "Microsoft.EntityFrameworkCore": "None",
+    "Microsoft.EntityFrameworkCore.Database.Command": "None",
+    "Microsoft.EntityFrameworkCore.Database.Transaction": "None"
+  }
+}
+```
+
 ## PowerApp Integration
 
 - Expose device status and control endpoints via Azure.

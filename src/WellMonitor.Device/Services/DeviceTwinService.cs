@@ -394,15 +394,76 @@ namespace WellMonitor.Device.Services
                 TwinCollection desired = twin.Properties.Desired;
 
                 var debugOptions = new DebugOptions();
+                var fromDeviceTwin = new List<string>();
+                var fromDefaults = new List<string>();
 
                 // Load debug settings from device twin with fallbacks
-                debugOptions.DebugMode = desired.Contains("debugMode") ? (bool)desired["debugMode"] : configuration.GetValue("Debug:DebugMode", false);
-                debugOptions.ImageSaveEnabled = desired.Contains("debugImageSaveEnabled") ? (bool)desired["debugImageSaveEnabled"] : configuration.GetValue("Debug:ImageSaveEnabled", false);
-                debugOptions.ImageRetentionDays = desired.Contains("debugImageRetentionDays") ? (int)desired["debugImageRetentionDays"] : configuration.GetValue("Debug:ImageRetentionDays", 7);
-                debugOptions.LogLevel = desired.Contains("logLevel") ? (string)desired["logLevel"] : configuration.GetValue("Debug:LogLevel", "Information");
-                debugOptions.EnableVerboseOcrLogging = desired.Contains("enableVerboseOcrLogging") ? (bool)desired["enableVerboseOcrLogging"] : configuration.GetValue("Debug:EnableVerboseOcrLogging", false);
+                if (desired.Contains("debugMode"))
+                {
+                    debugOptions.DebugMode = (bool)desired["debugMode"];
+                    fromDeviceTwin.Add($"debugMode={debugOptions.DebugMode}");
+                }
+                else
+                {
+                    debugOptions.DebugMode = configuration.GetValue("Debug:DebugMode", false);
+                    fromDefaults.Add($"debugMode={debugOptions.DebugMode}");
+                }
 
-                logger.LogInformation("Debug configuration loaded from device twin: DebugMode={DebugMode}, ImageSave={ImageSave}, LogLevel={LogLevel}, VerboseOCR={VerboseOCR}",
+                if (desired.Contains("debugImageSaveEnabled"))
+                {
+                    debugOptions.ImageSaveEnabled = (bool)desired["debugImageSaveEnabled"];
+                    fromDeviceTwin.Add($"debugImageSaveEnabled={debugOptions.ImageSaveEnabled}");
+                }
+                else
+                {
+                    debugOptions.ImageSaveEnabled = configuration.GetValue("Debug:ImageSaveEnabled", false);
+                    fromDefaults.Add($"debugImageSaveEnabled={debugOptions.ImageSaveEnabled}");
+                }
+
+                if (desired.Contains("debugImageRetentionDays"))
+                {
+                    debugOptions.ImageRetentionDays = (int)desired["debugImageRetentionDays"];
+                    fromDeviceTwin.Add($"debugImageRetentionDays={debugOptions.ImageRetentionDays}");
+                }
+                else
+                {
+                    debugOptions.ImageRetentionDays = configuration.GetValue("Debug:ImageRetentionDays", 7);
+                    fromDefaults.Add($"debugImageRetentionDays={debugOptions.ImageRetentionDays}");
+                }
+
+                if (desired.Contains("logLevel"))
+                {
+                    debugOptions.LogLevel = (string)desired["logLevel"];
+                    fromDeviceTwin.Add($"logLevel={debugOptions.LogLevel}");
+                }
+                else
+                {
+                    debugOptions.LogLevel = configuration.GetValue("Debug:LogLevel", "Information");
+                    fromDefaults.Add($"logLevel={debugOptions.LogLevel}");
+                }
+
+                if (desired.Contains("enableVerboseOcrLogging"))
+                {
+                    debugOptions.EnableVerboseOcrLogging = (bool)desired["enableVerboseOcrLogging"];
+                    fromDeviceTwin.Add($"enableVerboseOcrLogging={debugOptions.EnableVerboseOcrLogging}");
+                }
+                else
+                {
+                    debugOptions.EnableVerboseOcrLogging = configuration.GetValue("Debug:EnableVerboseOcrLogging", false);
+                    fromDefaults.Add($"enableVerboseOcrLogging={debugOptions.EnableVerboseOcrLogging}");
+                }
+
+                logger.LogInformation("📡 Debug configuration sources:");
+                if (fromDeviceTwin.Any())
+                {
+                    logger.LogInformation("  ✅ From Device Twin: {DeviceTwinSettings}", string.Join(", ", fromDeviceTwin));
+                }
+                if (fromDefaults.Any())
+                {
+                    logger.LogInformation("  ⚠️  From Defaults/Config: {DefaultSettings}", string.Join(", ", fromDefaults));
+                }
+
+                logger.LogInformation("🔧 Final Debug Configuration: DebugMode={DebugMode}, ImageSaveEnabled={ImageSave}, LogLevel={LogLevel}, VerboseOCR={VerboseOCR}",
                     debugOptions.DebugMode, debugOptions.ImageSaveEnabled, debugOptions.LogLevel, debugOptions.EnableVerboseOcrLogging);
 
                 return debugOptions;
