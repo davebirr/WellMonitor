@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.Azure.Devices.Client;
 using WellMonitor.Device.Services;
 using WellMonitor.Device.Models;
@@ -138,19 +139,25 @@ namespace WellMonitor.Device.Services
                 using var scope = _serviceScopeFactory.CreateScope();
                 var deviceTwinService = scope.ServiceProvider.GetRequiredService<IDeviceTwinService>();
                 var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-                var gpioOptions = scope.ServiceProvider.GetRequiredService<GpioOptions>();
-                var cameraOptions = scope.ServiceProvider.GetRequiredService<CameraOptions>();
+                var gpioOptionsMonitor = scope.ServiceProvider.GetRequiredService<IOptionsMonitor<GpioOptions>>();
+                var cameraOptionsMonitor = scope.ServiceProvider.GetRequiredService<IOptionsMonitor<CameraOptions>>();
+                
+                // Get current values from options monitors
+                var gpioOptions = gpioOptionsMonitor.CurrentValue;
+                var cameraOptions = cameraOptionsMonitor.CurrentValue;
                 
                 // Create device client
                 var deviceClient = DeviceClient.CreateFromConnectionString(iotHubConnectionString);
                 
                 // Load device twin configuration
+                var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
                 var deviceTwinConfig = await deviceTwinService.FetchAndApplyConfigAsync(
                     deviceClient, 
                     configuration, 
                     gpioOptions, 
                     cameraOptions, 
-                    _logger);
+                    _logger,
+                    runtimeConfigService);
 
                 // Load OCR configuration from device twin
                 try
@@ -158,11 +165,8 @@ namespace WellMonitor.Device.Services
                     var ocrOptions = await deviceTwinService.FetchAndApplyOcrConfigAsync(
                         deviceClient,
                         configuration,
-                        _logger);
-                    
-                    // Apply OCR configuration to runtime configuration service
-                    var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
-                    await runtimeConfigService.UpdateOcrOptionsAsync(ocrOptions);
+                        _logger,
+                        runtimeConfigService);
                     
                     _logger.LogInformation("OCR configuration loaded and applied from device twin: Provider={Provider}, Confidence={Confidence}", 
                         ocrOptions.Provider, ocrOptions.MinimumConfidence);
@@ -178,11 +182,8 @@ namespace WellMonitor.Device.Services
                     var debugOptions = await deviceTwinService.FetchAndApplyDebugConfigAsync(
                         deviceClient,
                         configuration,
-                        _logger);
-                    
-                    // Apply Debug configuration to runtime configuration service
-                    var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
-                    await runtimeConfigService.UpdateDebugOptionsAsync(debugOptions);
+                        _logger,
+                        runtimeConfigService);
                     
                     _logger.LogInformation("✅ Debug configuration loaded and applied from device twin: ImageSaveEnabled={ImageSaveEnabled}, DebugMode={DebugMode}", 
                         debugOptions.ImageSaveEnabled, debugOptions.DebugMode);
@@ -206,11 +207,8 @@ namespace WellMonitor.Device.Services
                         configuration,
                         gpio,
                         camera,
-                        _logger);
-                    
-                    // Apply the updated Camera configuration to runtime configuration service
-                    var runtimeConfigService = scope.ServiceProvider.GetRequiredService<IRuntimeConfigurationService>();
-                    await runtimeConfigService.UpdateCameraOptionsAsync(camera);
+                        _logger,
+                        runtimeConfigService);
                     
                     _logger.LogInformation("✅ Camera configuration loaded and applied from device twin: Width={Width}, Height={Height}, DebugPath='{DebugPath}'", 
                         camera.Width, camera.Height, camera.DebugImagePath);

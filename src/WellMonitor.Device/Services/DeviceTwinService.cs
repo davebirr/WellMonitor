@@ -9,10 +9,10 @@ namespace WellMonitor.Device.Services
 {
     public interface IDeviceTwinService
     {
-        Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger);
-        Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
-        Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
-        Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
+        Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
+        Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
+        Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
+        Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
         Task<PumpAnalysisOptions> FetchPumpAnalysisConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<PowerManagementOptions> FetchPowerManagementConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
@@ -22,7 +22,7 @@ namespace WellMonitor.Device.Services
 
     public class DeviceTwinService : IDeviceTwinService
     {
-        public async Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger)
+        public async Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             // Fetch device twin properties
             Twin twin = await deviceClient.GetTwinAsync();
@@ -71,7 +71,7 @@ namespace WellMonitor.Device.Services
             }
 
             // Camera configuration from device twin (with fallback to defaults)
-            UpdateCameraOptionsFromDeviceTwin(desired, configuration, cameraOptions, logger);
+            await UpdateCameraOptionsFromDeviceTwin(desired, configuration, cameraOptions, logger, runtimeConfigService);
 
             // Create config object for validation
             var config = new DeviceTwinConfig
@@ -108,7 +108,7 @@ namespace WellMonitor.Device.Services
             return config;
         }
 
-        private void UpdateCameraOptionsFromDeviceTwin(TwinCollection desired, IConfiguration configuration, CameraOptions cameraOptions, ILogger logger)
+        private async Task UpdateCameraOptionsFromDeviceTwin(TwinCollection desired, IConfiguration configuration, CameraOptions cameraOptions, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             logger.LogInformation("🔧 Updating camera configuration from device twin...");
             
@@ -160,12 +160,24 @@ namespace WellMonitor.Device.Services
             {
                 logger.LogInformation("Camera configuration validated successfully from device twin");
             }
+
+            // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+            if (runtimeConfigService != null)
+            {
+                logger.LogInformation("🔄 Updating runtime camera configuration with device twin values...");
+                await runtimeConfigService.UpdateCameraOptionsAsync(cameraOptions);
+                logger.LogInformation("✅ Runtime camera configuration updated successfully");
+            }
+            else
+            {
+                logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+            }
         }
 
         /// <summary>
         /// Fetch and apply OCR configuration from device twin
         /// </summary>
-        public async Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        public async Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             try
             {
@@ -229,6 +241,18 @@ namespace WellMonitor.Device.Services
 
                 logger.LogInformation("OCR configuration loaded from device twin: Provider={Provider}, MinConfidence={MinConfidence}, Preprocessing={Preprocessing}",
                     ocrOptions.Provider, ocrOptions.MinimumConfidence, ocrOptions.EnablePreprocessing);
+
+                // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+                if (runtimeConfigService != null)
+                {
+                    logger.LogInformation("🔄 Updating runtime OCR configuration with device twin values...");
+                    await runtimeConfigService.UpdateOcrOptionsAsync(ocrOptions);
+                    logger.LogInformation("✅ Runtime OCR configuration updated successfully");
+                }
+                else
+                {
+                    logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+                }
 
                 return ocrOptions;
             }
@@ -386,7 +410,7 @@ namespace WellMonitor.Device.Services
         /// <summary>
         /// Fetch and apply debug configuration from device twin
         /// </summary>
-        public async Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        public async Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             try
             {
@@ -466,6 +490,18 @@ namespace WellMonitor.Device.Services
                 logger.LogInformation("🔧 Final Debug Configuration: DebugMode={DebugMode}, ImageSaveEnabled={ImageSave}, LogLevel={LogLevel}, VerboseOCR={VerboseOCR}",
                     debugOptions.DebugMode, debugOptions.ImageSaveEnabled, debugOptions.LogLevel, debugOptions.EnableVerboseOcrLogging);
 
+                // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+                if (runtimeConfigService != null)
+                {
+                    logger.LogInformation("🔄 Updating runtime debug configuration with device twin values...");
+                    await runtimeConfigService.UpdateDebugOptionsAsync(debugOptions);
+                    logger.LogInformation("✅ Runtime debug configuration updated successfully");
+                }
+                else
+                {
+                    logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+                }
+
                 return debugOptions;
             }
             catch (Exception ex)
@@ -478,7 +514,7 @@ namespace WellMonitor.Device.Services
         /// <summary>
         /// Fetch and apply web dashboard configuration from device twin
         /// </summary>
-        public async Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        public async Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             try
             {
@@ -501,6 +537,18 @@ namespace WellMonitor.Device.Services
 
                 logger.LogInformation("Web configuration loaded from device twin: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}, HTTPS={HTTPS}",
                     webOptions.Port, webOptions.AllowNetworkAccess, webOptions.BindAddress, webOptions.EnableHttps);
+
+                // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+                if (runtimeConfigService != null)
+                {
+                    logger.LogInformation("🔄 Updating runtime web configuration with device twin values...");
+                    await runtimeConfigService.UpdateWebOptionsAsync(webOptions);
+                    logger.LogInformation("✅ Runtime web configuration updated successfully");
+                }
+                else
+                {
+                    logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+                }
 
                 return webOptions;
             }
