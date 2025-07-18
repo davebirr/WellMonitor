@@ -98,19 +98,19 @@ echo "Testing LED-optimized camera settings..."
 # Test 1: Default optimized settings
 libcamera-still -o ~/WellMonitor/src/WellMonitor.Device/$testDir/led_test_1.jpg \
   --width 1280 --height 720 --quality 85 --timeout 5000 \
-  --gain 12.0 --shutter 50000 --exposure off --awb off \
+  --gain 12.0 --shutter 50000 --exposure barcode --awb off \
   --brightness 70 --contrast 50 --saturation 30
 
 # Test 2: Higher gain for very dark conditions
 libcamera-still -o ~/WellMonitor/src/WellMonitor.Device/$testDir/led_test_2.jpg \
   --width 1280 --height 720 --quality 85 --timeout 5000 \
-  --gain 16.0 --shutter 75000 --exposure off --awb off \
+  --gain 16.0 --shutter 75000 --exposure barcode --awb off \
   --brightness 80 --contrast 60 --saturation 40
 
 # Test 3: Moderate settings for comparison
 libcamera-still -o ~/WellMonitor/src/WellMonitor.Device/$testDir/led_test_3.jpg \
   --width 1280 --height 720 --quality 85 --timeout 5000 \
-  --gain 8.0 --shutter 33000 --exposure off --awb off \
+  --gain 8.0 --shutter 33000 --exposure barcode --awb off \
   --brightness 60 --contrast 40 --saturation 20
 
 echo "Test captures complete!"

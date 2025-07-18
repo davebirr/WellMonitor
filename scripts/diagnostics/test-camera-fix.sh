@@ -48,19 +48,25 @@ fi
 
 echo ""
 
-# Test 4: Test problematic exposure settings
-echo "🧪 Test 4: Testing potentially problematic exposure settings..."
-if timeout 10s libcamera-still --output /tmp/test_exposure.jpg --width 640 --height 480 --timeout 2000 --exposure off --nopreview --encoding jpg >/dev/null 2>&1; then
+# Test 4: Test with barcode exposure mode (good for high contrast LED displays)
+echo "🧪 Test 4: Testing barcode exposure mode for LED displays..."
+if timeout 10s libcamera-still --output /tmp/test_exposure.jpg --width 640 --height 480 --timeout 2000 --exposure barcode --nopreview --encoding jpg >/dev/null 2>&1; then
     if [ -f /tmp/test_exposure.jpg ] && [ -s /tmp/test_exposure.jpg ]; then
-        echo "✅ Exposure 'off' setting works"
+        echo "✅ Barcode exposure mode works (optimal for LED displays)"
         rm -f /tmp/test_exposure.jpg
     else
-        echo "⚠️  Exposure 'off' creates empty/no file"
+        echo "⚠️  Barcode exposure mode creates empty/no file"
     fi
 else
-    echo "❌ Exposure 'off' setting FAILED (this might be the problem!)"
+    echo "❌ Barcode exposure mode FAILED - trying normal mode as fallback"
+    if timeout 10s libcamera-still --output /tmp/test_exposure_fallback.jpg --width 640 --height 480 --timeout 2000 --exposure normal --nopreview --encoding jpg >/dev/null 2>&1; then
+        echo "✅ Normal exposure mode works as fallback"
+        rm -f /tmp/test_exposure_fallback.jpg
+    else
+        echo "❌ Both barcode and normal exposure modes failed"
+    fi
 fi
 
 echo ""
-echo "🔍 Camera diagnostic complete. If Test 4 failed, that's likely our camera issue."
-echo "The fix should use fallback camera commands and avoid problematic exposure settings."
+echo "🔍 Camera diagnostic complete. If Test 4 failed, that indicates camera compatibility issues."
+echo "The fix should use proper exposure modes like 'barcode' or 'normal' instead of invalid 'off' mode."

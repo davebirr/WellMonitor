@@ -186,26 +186,20 @@ namespace WellMonitor.Device.Services
                 _logger.LogDebug("Using manual shutter speed: {ShutterSpeed}μs", cameraOptions.ShutterSpeedMicroseconds);
             }
 
-            // Disable auto exposure if manual shutter is set (only if manual shutter is actually set)
+            // Handle exposure mode - use appropriate mode for LED displays
             if (cameraOptions.ShutterSpeedMicroseconds > 0)
             {
+                // When using manual shutter speed, use 'barcode' mode for high contrast LED displays
                 args.Add("--exposure");
-                args.Add("off");
-                _logger.LogDebug("Auto exposure disabled for manual shutter control");
+                args.Add("barcode");
+                _logger.LogDebug("Manual shutter speed set, using barcode exposure mode for LED displays");
             }
             else if (!cameraOptions.AutoExposure)
             {
-                // Try to set exposure mode more carefully
-                try
-                {
-                    args.Add("--exposure");
-                    args.Add("normal");  // Use 'normal' instead of 'off' for better compatibility
-                    _logger.LogDebug("Auto exposure set to normal mode");
-                }
-                catch
-                {
-                    _logger.LogWarning("Could not set exposure mode - using default");
-                }
+                // For non-auto exposure, use 'normal' mode as it's the most compatible
+                args.Add("--exposure");
+                args.Add("normal");
+                _logger.LogDebug("Auto exposure disabled, using normal exposure mode");
             }
 
             // Disable auto white balance if specified (useful for LED color consistency)
