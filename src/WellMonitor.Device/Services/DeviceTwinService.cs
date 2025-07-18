@@ -18,6 +18,7 @@ namespace WellMonitor.Device.Services
         Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task ReportOcrStatusAsync(DeviceClient deviceClient, IOcrService ocrService, ILogger logger);
         Task LogPeriodicConfigurationSummaryAsync(DeviceClient deviceClient, CameraOptions cameraOptions, ILogger logger);
+        Task UpdateCameraExposureModeAsync(CameraExposureMode exposureMode);
     }
 
     public class DeviceTwinService : IDeviceTwinService
@@ -748,6 +749,15 @@ namespace WellMonitor.Device.Services
             UpdateCameraSetting(cameraConfig, "AutoWhiteBalance", val => cameraOptions.AutoWhiteBalance = (bool)val, 
                 () => cameraOptions.AutoWhiteBalance, settingsFromDeviceTwin, settingsFromDefaults);
             
+            UpdateCameraSetting(cameraConfig, "ExposureMode", val => 
+                {
+                    if (Enum.TryParse<CameraExposureMode>((string)val, true, out var mode))
+                        cameraOptions.ExposureMode = mode;
+                    else
+                        logger.LogWarning("Invalid exposure mode '{Mode}' from device twin, using default", val);
+                }, 
+                () => cameraOptions.ExposureMode.ToString(), settingsFromDeviceTwin, settingsFromDefaults);
+            
             UpdateCameraSetting(cameraConfig, "EnablePreview", val => cameraOptions.EnablePreview = (bool)val, 
                 () => cameraOptions.EnablePreview, settingsFromDeviceTwin, settingsFromDefaults);
             
@@ -889,6 +899,25 @@ namespace WellMonitor.Device.Services
             else
             {
                 settingsFromDefaults.Add($"AutoWhiteBalance={cameraOptions.AutoWhiteBalance} (default)");
+            }
+            
+            if (desired.Contains("cameraExposureMode"))
+            {
+                var exposureModeString = (string)desired["cameraExposureMode"];
+                if (Enum.TryParse<CameraExposureMode>(exposureModeString, true, out var mode))
+                {
+                    cameraOptions.ExposureMode = mode;
+                    settingsFromDeviceTwin.Add($"ExposureMode={cameraOptions.ExposureMode}");
+                }
+                else
+                {
+                    logger.LogWarning("Invalid exposure mode '{Mode}' from device twin, using default", exposureModeString);
+                    settingsFromDefaults.Add($"ExposureMode={cameraOptions.ExposureMode} (invalid value, using default)");
+                }
+            }
+            else
+            {
+                settingsFromDefaults.Add($"ExposureMode={cameraOptions.ExposureMode} (default)");
             }
             
             if (desired.Contains("cameraEnablePreview"))
@@ -1044,6 +1073,24 @@ namespace WellMonitor.Device.Services
         {
             var legacyProperties = new[] { "cameraWidth", "cameraHeight", "cameraGain", "cameraShutterSpeedMicroseconds" };
             return legacyProperties.Any(prop => desired.Contains(prop));
+        }
+
+        /// <summary>
+        /// Updates the camera exposure mode configuration
+        /// This method updates the runtime configuration but does not persist to device twin
+        /// </summary>
+        /// <param name="exposureMode">The exposure mode to set</param>
+        public async Task UpdateCameraExposureModeAsync(CameraExposureMode exposureMode)
+        {
+            await Task.CompletedTask; // Async signature for future extensibility
+            
+            // For now, this method provides an interface for future device twin updates
+            // In a production scenario, this would update the device twin reported properties
+            // and potentially trigger a device twin desired property update
+            
+            // TODO: Implement device twin update logic when DeviceClient is available
+            // This would require access to the DeviceClient instance, which is currently
+            // managed at the application level rather than the service level
         }
     }
 

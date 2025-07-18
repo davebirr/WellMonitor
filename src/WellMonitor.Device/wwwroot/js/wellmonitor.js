@@ -709,6 +709,157 @@ class WellMonitorDashboard {
         }
     }
 
+    // Camera Exposure Mode Management
+    setExposureMode(mode) {
+        const exposureSelect = document.getElementById('exposure-mode');
+        if (exposureSelect) {
+            exposureSelect.value = mode;
+            this.updateExposureMode();
+        }
+    }
+
+    updateExposureMode() {
+        const exposureSelect = document.getElementById('exposure-mode');
+        const statusDiv = document.getElementById('exposure-mode-status');
+        const messageSpan = document.getElementById('exposure-mode-message');
+        
+        if (exposureSelect && statusDiv && messageSpan) {
+            const selectedMode = exposureSelect.value;
+            const selectedOption = exposureSelect.options[exposureSelect.selectedIndex];
+            const description = selectedOption.text.split(' - ')[1] || selectedOption.text;
+            
+            statusDiv.style.display = 'block';
+            messageSpan.textContent = `Selected: ${selectedMode} - ${description}`;
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    async applyExposureMode() {
+        const exposureSelect = document.getElementById('exposure-mode');
+        const statusDiv = document.getElementById('exposure-mode-status');
+        const messageSpan = document.getElementById('exposure-mode-message');
+        
+        if (!exposureSelect || !statusDiv || !messageSpan) {
+            console.error('Exposure mode elements not found');
+            return;
+        }
+        
+        const selectedMode = exposureSelect.value;
+        
+        try {
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'mt-2 alert alert-info';
+            messageSpan.innerHTML = `<i class="bi bi-hourglass-split"></i> Applying exposure mode: ${selectedMode}...`;
+            
+            // Send the exposure mode update to the device
+            const response = await fetch('/api/camera/exposure-mode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    exposureMode: selectedMode 
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                statusDiv.className = 'mt-2 alert alert-success';
+                messageSpan.innerHTML = `<i class="bi bi-check-circle"></i> Successfully applied exposure mode: ${selectedMode}`;
+                
+                // Optionally trigger a test capture to show the effect
+                setTimeout(() => {
+                    this.testExposureMode();
+                }, 1000);
+            } else {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to apply exposure mode');
+            }
+        } catch (error) {
+            console.error('Failed to apply exposure mode:', error);
+            statusDiv.className = 'mt-2 alert alert-danger';
+            messageSpan.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Failed to apply exposure mode: ${error.message}`;
+        }
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+
+    async testExposureMode() {
+        const statusDiv = document.getElementById('exposure-mode-status');
+        const messageSpan = document.getElementById('exposure-mode-message');
+        
+        if (!statusDiv || !messageSpan) {
+            console.error('Exposure mode status elements not found');
+            return;
+        }
+        
+        try {
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'mt-2 alert alert-info';
+            messageSpan.innerHTML = `<i class="bi bi-camera"></i> Capturing test image with current exposure mode...`;
+            
+            // Trigger a test capture
+            const response = await fetch('/api/camera/test-capture', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                statusDiv.className = 'mt-2 alert alert-success';
+                messageSpan.innerHTML = `<i class="bi bi-check-circle"></i> Test capture completed! Check the debug images section for results.`;
+                
+                // If we're on the debug images section, refresh it
+                if (document.getElementById('debug-images-section').style.display !== 'none') {
+                    setTimeout(() => {
+                        this.loadDebugImages();
+                    }, 1000);
+                }
+            } else {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to capture test image');
+            }
+        } catch (error) {
+            console.error('Failed to capture test image:', error);
+            statusDiv.className = 'mt-2 alert alert-danger';
+            messageSpan.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Failed to capture test image: ${error.message}`;
+        }
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
+    }
+
+    // Load current camera configuration
+    async loadCameraConfiguration() {
+        try {
+            const response = await fetch('/api/camera/configuration');
+            if (response.ok) {
+                const config = await response.json();
+                
+                // Update the exposure mode dropdown
+                const exposureSelect = document.getElementById('exposure-mode');
+                if (exposureSelect && config.exposureMode) {
+                    exposureSelect.value = config.exposureMode;
+                }
+                
+                console.log('Camera configuration loaded:', config);
+            }
+        } catch (error) {
+            console.error('Failed to load camera configuration:', error);
+        }
+    }
+
     // Cleanup
     destroy() {
         if (this.connection) {
@@ -725,12 +876,68 @@ class WellMonitorDashboard {
     }
 }
 
+// Global functions for HTML event handlers
+function showSection(sectionId) {
+    if (window.dashboard) {
+        window.dashboard.showSection(sectionId);
+    }
+}
+
+function startCameraPreview() {
+    if (window.dashboard) {
+        window.dashboard.startCameraPreview();
+    }
+}
+
+function stopCameraPreview() {
+    if (window.dashboard) {
+        window.dashboard.stopCameraPreview();
+    }
+}
+
+function updateExposureMode() {
+    if (window.dashboard) {
+        window.dashboard.updateExposureMode();
+    }
+}
+
+function setExposureMode(mode) {
+    if (window.dashboard) {
+        window.dashboard.setExposureMode(mode);
+    }
+}
+
+function applyExposureMode() {
+    if (window.dashboard) {
+        window.dashboard.applyExposureMode();
+    }
+}
+
+function testExposureMode() {
+    if (window.dashboard) {
+        window.dashboard.testExposureMode();
+    }
+}
+
 // Initialize dashboard when page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.dashboard = new WellMonitorDashboard();
     
     // Show dashboard section by default
     window.dashboard.showSection('dashboard');
+    
+    // Load camera configuration when camera setup section is shown
+    document.addEventListener('sectionChanged', (event) => {
+        if (event.detail.sectionId === 'camera-position') {
+            window.dashboard.loadCameraConfiguration();
+        }
+    });
+    
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
 
 // Cleanup on page unload

@@ -1,8 +1,117 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
+using System.ComponentModel;
 
 namespace WellMonitor.Device.Models
 {
+    /// <summary>
+    /// Camera exposure modes for different lighting conditions and subject types
+    /// </summary>
+    public enum CameraExposureMode
+    {
+        /// <summary>
+        /// Automatic exposure control (default)
+        /// </summary>
+        [Description("Automatic exposure control")]
+        Auto,
+
+        /// <summary>
+        /// Normal exposure mode - general purpose
+        /// </summary>
+        [Description("Normal exposure - general purpose")]
+        Normal,
+
+        /// <summary>
+        /// Sport mode - fast shutter for motion
+        /// </summary>
+        [Description("Sport mode - fast shutter for motion")]
+        Sport,
+
+        /// <summary>
+        /// Night mode - long exposure for low light
+        /// </summary>
+        [Description("Night mode - long exposure for low light")]
+        Night,
+
+        /// <summary>
+        /// Backlight mode - exposure for backlit subjects
+        /// </summary>
+        [Description("Backlight mode - exposure for backlit subjects")]
+        Backlight,
+
+        /// <summary>
+        /// Spotlight mode - exposure for spotlit subjects
+        /// </summary>
+        [Description("Spotlight mode - exposure for spotlit subjects")]
+        Spotlight,
+
+        /// <summary>
+        /// Beach mode - bright outdoor conditions
+        /// </summary>
+        [Description("Beach mode - bright outdoor conditions")]
+        Beach,
+
+        /// <summary>
+        /// Snow mode - very bright conditions with snow
+        /// </summary>
+        [Description("Snow mode - very bright conditions")]
+        Snow,
+
+        /// <summary>
+        /// Fireworks mode - dark with bright highlights
+        /// </summary>
+        [Description("Fireworks mode - dark with bright highlights")]
+        Fireworks,
+
+        /// <summary>
+        /// Party mode - indoor party lighting
+        /// </summary>
+        [Description("Party mode - indoor party lighting")]
+        Party,
+
+        /// <summary>
+        /// Candlelight mode - very low light conditions
+        /// </summary>
+        [Description("Candlelight mode - very low light")]
+        Candlelight,
+
+        /// <summary>
+        /// Barcode mode - high contrast for reading text/numbers (OPTIMAL for LED displays)
+        /// </summary>
+        [Description("Barcode mode - high contrast for LED displays")]
+        Barcode,
+
+        /// <summary>
+        /// Macro mode - close-up photography
+        /// </summary>
+        [Description("Macro mode - close-up photography")]
+        Macro,
+
+        /// <summary>
+        /// Landscape mode - general outdoor photography
+        /// </summary>
+        [Description("Landscape mode - general outdoor")]
+        Landscape,
+
+        /// <summary>
+        /// Portrait mode - people photography
+        /// </summary>
+        [Description("Portrait mode - people photography")]
+        Portrait,
+
+        /// <summary>
+        /// Anti-shake mode - reduces camera shake
+        /// </summary>
+        [Description("Anti-shake mode - reduces camera shake")]
+        Antishake,
+
+        /// <summary>
+        /// Fixed FPS mode - fixed frame rate
+        /// </summary>
+        [Description("Fixed FPS mode - fixed frame rate")]
+        FixedFps
+    }
+
     /// <summary>
     /// Configuration options for the Raspberry Pi camera
     /// </summary>
@@ -82,6 +191,12 @@ namespace WellMonitor.Device.Models
         /// Enable/disable automatic white balance
         /// </summary>
         public bool AutoWhiteBalance { get; set; } = true;
+
+        /// <summary>
+        /// Camera exposure mode for different lighting conditions
+        /// Barcode mode is recommended for LED displays with high contrast
+        /// </summary>
+        public CameraExposureMode ExposureMode { get; set; } = CameraExposureMode.Auto;
     }
 
     /// <summary>

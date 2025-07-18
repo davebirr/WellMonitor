@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using WellMonitor.Device.Models;
+using WellMonitor.Device.Controllers;
 
 namespace WellMonitor.Device.Services
 {
@@ -186,20 +187,33 @@ namespace WellMonitor.Device.Services
                 _logger.LogDebug("Using manual shutter speed: {ShutterSpeed}μs", cameraOptions.ShutterSpeedMicroseconds);
             }
 
-            // Handle exposure mode - use appropriate mode for LED displays
-            if (cameraOptions.ShutterSpeedMicroseconds > 0)
+            // Handle exposure mode based on configuration
+            if (cameraOptions.ExposureMode != CameraExposureMode.Auto)
             {
-                // When using manual shutter speed, use 'barcode' mode for high contrast LED displays
+                // Use the configured exposure mode
+                var exposureMode = cameraOptions.ExposureMode.ToString().ToLowerInvariant();
+                
+                // Handle special case for FixedFps (needs to be "fixedfps" not "fixedfps")
+                if (cameraOptions.ExposureMode == CameraExposureMode.FixedFps)
+                    exposureMode = "fixedfps";
+                
+                args.Add("--exposure");
+                args.Add(exposureMode);
+                _logger.LogDebug("Using configured exposure mode: {ExposureMode}", exposureMode);
+            }
+            else if (cameraOptions.ShutterSpeedMicroseconds > 0)
+            {
+                // When using manual shutter speed, default to 'barcode' mode for LED displays
                 args.Add("--exposure");
                 args.Add("barcode");
                 _logger.LogDebug("Manual shutter speed set, using barcode exposure mode for LED displays");
             }
             else if (!cameraOptions.AutoExposure)
             {
-                // For non-auto exposure, use 'normal' mode as it's the most compatible
+                // For non-auto exposure, use 'normal' mode as fallback
                 args.Add("--exposure");
                 args.Add("normal");
-                _logger.LogDebug("Auto exposure disabled, using normal exposure mode");
+                _logger.LogDebug("Auto exposure disabled, using normal exposure mode as fallback");
             }
 
             // Disable auto white balance if specified (useful for LED color consistency)
@@ -403,6 +417,89 @@ namespace WellMonitor.Device.Services
             {
                 _logger.LogWarning(ex, "{Command} execution failed", command);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets the current camera configuration
+        /// </summary>
+        /// <returns>Current camera options</returns>
+        public async Task<CameraOptions?> GetCurrentConfigurationAsync()
+        {
+            try
+            {
+                await Task.CompletedTask; // Async signature for future extensibility
+                return _cameraOptions.CurrentValue;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get camera configuration");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Captures a test image with current camera settings
+        /// </summary>
+        /// <returns>Result of the capture operation</returns>
+        public async Task<CameraOperationResult> CaptureTestImageAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Capturing test image with current camera settings");
+
+                // Ensure debug images directory exists
+                var cameraOptions = _cameraOptions.CurrentValue;
+                var debugPath = cameraOptions.DebugImagePath ?? "/tmp/wellmonitor-debug";
+                
+                if (!Directory.Exists(debugPath))
+                {
+                    Directory.CreateDirectory(debugPath);
+                }
+
+                // Generate a filename for the test image
+                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var testImagePath = Path.Combine(debugPath, $"test_exposure_{timestamp}.jpg");
+
+                // Build the camera command arguments
+                var arguments = BuildCameraArguments(testImagePath);
+
+                // Try libcamera-still first, then rpicam-still as fallback
+                var success = await TryCameraCommand("libcamera-still", arguments, testImagePath);
+                if (!success)
+                {
+                    _logger.LogWarning("libcamera-still failed, trying rpicam-still as fallback...");
+                    success = await TryCameraCommand("rpicam-still", arguments, testImagePath);
+                }
+
+                if (success)
+                {
+                    _logger.LogInformation("Test image captured successfully: {ImagePath}", testImagePath);
+                    return new CameraOperationResult
+                    {
+                        Success = true,
+                        ImagePath = testImagePath
+                    };
+                }
+                else
+                {
+                    var errorMessage = "Failed to capture test image with both libcamera-still and rpicam-still";
+                    _logger.LogError(errorMessage);
+                    return new CameraOperationResult
+                    {
+                        Success = false,
+                        ErrorMessage = errorMessage
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error capturing test image");
+                return new CameraOperationResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
             }
         }
     }

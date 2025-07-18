@@ -306,6 +306,84 @@
                                         </div>
                                     </div>
                                 </div>
+                                
+                                <!-- Camera Exposure Mode Settings -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <i class="bi bi-brightness-high"></i> Camera Exposure Mode
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <label for="exposure-mode" class="form-label">
+                                                            Exposure Mode
+                                                            <i class="bi bi-info-circle" data-bs-toggle="tooltip" 
+                                                               title="Select the optimal exposure mode for your lighting conditions. 'Barcode' mode is recommended for LED displays."></i>
+                                                        </label>
+                                                        <select class="form-select" id="exposure-mode" onchange="updateExposureMode()">
+                                                            <option value="Auto">Auto - Automatic exposure mode selection</option>
+                                                            <option value="Normal">Normal - Standard exposure mode for general use</option>
+                                                            <option value="Sport">Sport - Fast shutter speed for moving subjects</option>
+                                                            <option value="Night">Night - Enhanced low-light performance</option>
+                                                            <option value="Backlight">Backlight - Compensates for bright background</option>
+                                                            <option value="Spotlight">Spotlight - Optimized for bright spot lighting</option>
+                                                            <option value="Beach">Beach - Optimized for bright beach/sand conditions</option>
+                                                            <option value="Snow">Snow - Optimized for bright snow conditions</option>
+                                                            <option value="Fireworks">Fireworks - Long exposure for fireworks</option>
+                                                            <option value="Party">Party - Indoor party lighting</option>
+                                                            <option value="Candlelight">Candlelight - Warm, low-light conditions</option>
+                                                            <option value="Barcode" selected>Barcode - High contrast for barcode/LED reading (recommended)</option>
+                                                            <option value="Macro">Macro - Close-up photography</option>
+                                                            <option value="Landscape">Landscape - Wide depth of field</option>
+                                                            <option value="Portrait">Portrait - Shallow depth of field</option>
+                                                            <option value="Antishake">Antishake - Reduced camera shake</option>
+                                                            <option value="FixedFps">FixedFps - Fixed frame rate mode</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="d-flex flex-column h-100">
+                                                            <label class="form-label">Quick Mode Selection</label>
+                                                            <div class="btn-group-vertical" role="group">
+                                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setExposureMode('Barcode')">
+                                                                    <i class="bi bi-display"></i> LED Display
+                                                                </button>
+                                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setExposureMode('Normal')">
+                                                                    <i class="bi bi-sun"></i> Normal Lighting
+                                                                </button>
+                                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setExposureMode('Night')">
+                                                                    <i class="bi bi-moon"></i> Low Light
+                                                                </button>
+                                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setExposureMode('Auto')">
+                                                                    <i class="bi bi-magic"></i> Auto
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="row mt-3">
+                                                    <div class="col-12">
+                                                        <div class="d-flex gap-2">
+                                                            <button class="btn btn-primary" onclick="applyExposureMode()">
+                                                                <i class="bi bi-check2"></i> Apply Mode
+                                                            </button>
+                                                            <button class="btn btn-secondary" onclick="testExposureMode()">
+                                                                <i class="bi bi-camera"></i> Test Capture
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div id="exposure-mode-status" class="mt-2" style="display: none;">
+                                                    <div class="alert alert-info">
+                                                        <i class="bi bi-info-circle"></i>
+                                                        <span id="exposure-mode-message"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
