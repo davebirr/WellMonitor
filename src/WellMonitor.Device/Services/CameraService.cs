@@ -203,10 +203,10 @@ namespace WellMonitor.Device.Services
             }
             else if (cameraOptions.ShutterSpeedMicroseconds > 0)
             {
-                // When using manual shutter speed, default to 'barcode' mode for LED displays
+                // When using manual shutter speed, use 'normal' mode instead of 'barcode' for compatibility
                 args.Add("--exposure");
-                args.Add("barcode");
-                _logger.LogDebug("Manual shutter speed set, using barcode exposure mode for LED displays");
+                args.Add("normal");
+                _logger.LogDebug("Manual shutter speed set, using normal exposure mode for LED displays");
             }
             else if (!cameraOptions.AutoExposure)
             {
