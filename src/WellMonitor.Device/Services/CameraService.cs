@@ -220,8 +220,8 @@ namespace WellMonitor.Device.Services
             if (!cameraOptions.AutoWhiteBalance)
             {
                 args.Add("--awb");
-                args.Add("off");
-                _logger.LogDebug("Auto white balance disabled for consistent LED colors");
+                args.Add("auto");  // Use 'auto' instead of 'off' for compatibility
+                _logger.LogDebug("Auto white balance set to auto mode for LED color consistency");
             }
 
             // Disable preview unless explicitly enabled
