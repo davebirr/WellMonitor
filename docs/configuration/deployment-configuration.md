@@ -93,21 +93,63 @@ sudo snap install powershell --classic
 # Method 2: If snap is not available, download and install manually
 # Get the latest release info and download the correct file
 ARCH=$(dpkg --print-architecture)
+echo "Detected architecture: $ARCH"
+
 if [ "$ARCH" = "amd64" ]; then
-    # Download latest PowerShell for amd64
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*amd64\.deb" | cut -d '"' -f 4)
-    sudo dpkg -i powershell.deb
-    sudo apt-get install -f  # Fix any dependency issues
-    rm powershell.deb
+    echo "Downloading PowerShell for amd64..."
+    
+    # Debug: Let's see what we get from each step
+    echo "Step 1: Getting release info..."
+    RELEASE_DATA=$(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest)
+    echo "Release data retrieved (first 200 chars): ${RELEASE_DATA:0:200}"
+    
+    echo "Step 2: Looking for browser_download_url lines..."
+    DOWNLOAD_LINES=$(echo "$RELEASE_DATA" | grep "browser_download_url")
+    echo "Found $(echo "$DOWNLOAD_LINES" | wc -l) download URLs"
+    
+    echo "Step 3: Looking for amd64.deb files..."
+    DEB_LINES=$(echo "$DOWNLOAD_LINES" | grep "amd64\.deb")
+    echo "Found amd64.deb lines:"
+    echo "$DEB_LINES"
+    
+    echo "Step 4: Getting first match and extracting URL..."
+    URL=$(echo "$DEB_LINES" | head -1 | cut -d '"' -f 4)
+    echo "Extracted URL: '$URL'"
+    
+    if [ -n "$URL" ]; then
+        echo "Step 5: Downloading file..."
+        wget -O powershell.deb "$URL"
+        sudo dpkg -i powershell.deb
+        sudo apt-get install -f  # Fix any dependency issues
+        rm powershell.deb
+    else
+        echo "ERROR: Could not extract download URL"
+        echo "Falling back to snap installation..."
+        sudo snap install powershell --classic
+    fi
+    
 elif [ "$ARCH" = "arm64" ]; then
-    # Download latest PowerShell for arm64  
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*arm64\.deb" | cut -d '"' -f 4)
-    sudo dpkg -i powershell.deb
-    sudo apt-get install -f
-    rm powershell.deb
+    echo "Downloading PowerShell for arm64..."
+    echo "Note: PowerShell .deb packages are not available for ARM64 architecture"
+    echo "Using snap installation with edge channel..."
+    
+    # For ARM64, PowerShell is only available on edge channel
+    sudo snap install --edge powershell --classic
+    
 else
-    echo "Unsupported architecture: $ARCH. Please use snap install instead."
-    sudo snap install powershell --classic
+    echo "Unsupported architecture: $ARCH"
+    echo "Supported architectures: amd64, arm64"
+    echo "Attempting snap installation..."
+    
+    # Try edge channel for unsupported architectures
+    if sudo snap install --edge powershell --classic; then
+        echo "Successfully installed PowerShell via snap edge channel"
+    else
+        echo "ERROR: Could not install PowerShell for architecture $ARCH"
+        echo "You may need to install PowerShell manually from:"
+        echo "https://github.com/PowerShell/PowerShell/releases"
+        exit 1
+    fi
 fi
 
 # Verify PowerShell installation
@@ -120,10 +162,12 @@ pwsh --version
 az login
 # Follow the browser authentication flow
 
-# Set your default subscription (if you have multiple)
-az account set --subscription "Your Subscription Name"
+# Set your default subscription using the project's subscription ID
+az account set --subscription "${AZURE_SUBSCRIPTION_ID}"
+# Alternative if environment variable not set:
+# az account set --subscription "7e77b014-138f-4858-952b-76e75f0bbeb7"
 
-# Verify Azure authentication
+# Verify Azure authentication and subscription
 az account show
 
 # Authenticate with GitHub CLI
@@ -398,28 +442,56 @@ which pwsh
 # Method 1: Use snap (most reliable - bypasses repository issues)
 sudo snap install powershell --classic
 
+# For ARM64 systems (Windows on ARM), use edge channel:
+sudo snap install --edge powershell --classic
+
 # Method 2: Download latest release automatically (if snap not available)
 ARCH=$(dpkg --print-architecture)
+echo "Detected architecture: $ARCH"
+
 if [ "$ARCH" = "amd64" ]; then
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*amd64\.deb" | cut -d '"' -f 4)
+    echo "Downloading PowerShell for amd64..."
+    RELEASE_DATA=$(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest)
+    DEB_LINES=$(echo "$RELEASE_DATA" | grep "browser_download_url" | grep "amd64\.deb")
+    URL=$(echo "$DEB_LINES" | head -1 | cut -d '"' -f 4)
+    
+    if [ -n "$URL" ]; then
+        wget -O powershell.deb "$URL"
+        sudo dpkg -i powershell.deb
+        sudo apt-get install -f
+        rm powershell.deb
+    else
+        echo "Could not extract URL, using snap instead"
+        sudo snap install powershell --classic
+    fi
 elif [ "$ARCH" = "arm64" ]; then
-    wget -O powershell.deb $(curl -s https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep "browser_download_url.*arm64\.deb" | cut -d '"' -f 4)
+    echo "ARM64 architecture detected - .deb packages not available"
+    echo "Using snap edge channel for ARM64..."
+    sudo snap install --edge powershell --classic
+else
+    echo "Unsupported architecture, trying snap edge channel..."
+    sudo snap install --edge powershell --classic
 fi
-sudo dpkg -i powershell.deb
-sudo apt-get install -f  # Fix any dependency issues
-rm powershell.deb
 
 # Method 3: Use Microsoft's install script
 curl -L https://aka.ms/install-powershell.sh | sudo bash
 
-# Note: The Microsoft repository from .NET installation may not include PowerShell
-# This is a known issue - the prod repository sometimes doesn't have PowerShell packages
-# Snap installation is the most reliable workaround
+# Architecture-specific notes:
+# - AMD64/x86_64: Full support with .deb packages and stable snap channel
+# - ARM64: Limited support, requires snap edge channel (no .deb packages available)
+# - Other architectures: May require manual installation from GitHub releases
 
-# Common issue: wget returns "missing URL" error
-# This happens when the grep pattern doesn't match the actual filename format
-# PowerShell releases use format: powershell_X.Y.Z-1.deb_ARCH.deb
-# Make sure grep pattern matches: ".*amd64\.deb" not ".*deb.*amd64"
+# Windows on ARM detection:
+# If you're running WSL on a Windows on ARM device (Surface Pro X, etc.):
+# - dpkg --print-architecture will return "arm64"  
+# - PowerShell .deb packages are not available for ARM64
+# - Use: sudo snap install --edge powershell --classic
+# - Edge channel may have pre-release features but is the only option for ARM64
+
+# Common issues:
+# 1. "snap not available on stable": Use --edge flag for ARM64 systems
+# 2. "wget missing URL": Likely ARM64 system where .deb packages don't exist
+# 3. Architecture mismatch: Verify with uname -m and dpkg --print-architecture
 ```
 
 ## Team Configuration
