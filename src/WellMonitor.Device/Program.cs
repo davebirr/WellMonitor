@@ -6,33 +6,118 @@ using Microsoft.Extensions.Options;
 using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Devices.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting;
 using WellMonitor.Device.Services;
 using WellMonitor.Device.Models;
 using WellMonitor.Device.Data;
+using WellMonitor.Device.Hubs;
 
 // 1. Dependency Injection: Register all services and logging
-// Register options for GpioService and CameraService
 var gpioOptions = new GpioOptions
 {
-    RelayDebounceMs = 500 // default, will be overwritten below
-};
-
-var cameraOptions = new CameraOptions
-{
-    Width = 1920,
-    Height = 1080,
-    Quality = 85,
-    TimeoutMs = 30000,
-    WarmupTimeMs = 2000,
-    Rotation = 0,
-    Brightness = 50,
-    Contrast = 0,
-    Saturation = 0,
-    EnablePreview = false,
-    DebugImagePath = "debug_images" // Relative to application directory
+    RelayDebounceMs = 500 // default, will be overwritten by device twin
 };
 
 var host = Host.CreateDefaultBuilder(args)
+    .ConfigureWebHostDefaults(webBuilder =>
+    {
+        webBuilder.ConfigureKestrel((context, options) =>
+        {
+            // Get web configuration from environment/config
+            var config = context.Configuration;
+            
+            var webPort = config.GetValue<int>("Web:Port", 5000);
+            var allowNetworkAccess = config.GetValue<bool>("Web:AllowNetworkAccess", false);
+            var bindAddress = config.GetValue<string>("Web:BindAddress", "127.0.0.1");
+            var enableHttps = config.GetValue<bool>("Web:EnableHttps", false);
+            var httpsPort = config.GetValue<int>("Web:HttpsPort", 5001);
+
+            // Configure HTTP endpoint
+            if (allowNetworkAccess)
+            {
+                if (bindAddress == "0.0.0.0")
+                {
+                    options.ListenAnyIP(webPort);
+                }
+                else
+                {
+                    options.Listen(System.Net.IPAddress.Parse(bindAddress), webPort);
+                }
+            }
+            else
+            {
+                options.ListenLocalhost(webPort);
+            }
+
+            // Configure HTTPS if enabled
+            if (enableHttps)
+            {
+                if (allowNetworkAccess && bindAddress == "0.0.0.0")
+                {
+                    options.ListenAnyIP(httpsPort, listenOptions =>
+                    {
+                        listenOptions.UseHttps();
+                    });
+                }
+                else
+                {
+                    options.ListenLocalhost(httpsPort, listenOptions =>
+                    {
+                        listenOptions.UseHttps();
+                    });
+                }
+            }
+        });
+        webBuilder.UseWebRoot("wwwroot");
+        webBuilder.Configure((context, app) =>
+        {
+            var env = context.HostingEnvironment;
+            
+            if (env.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+
+            // Get web options for CORS configuration
+            var webOptionsSource = app.ApplicationServices.GetService<RuntimeWebOptionsSource>();
+            var webOptions = webOptionsSource?.CurrentValue ?? new WebOptions();
+
+            // Configure CORS if origins are specified
+            if (!string.IsNullOrEmpty(webOptions.CorsOrigins))
+            {
+                app.UseCors(builder =>
+                {
+                    var origins = webOptions.CorsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(o => o.Trim()).ToArray();
+                    builder.WithOrigins(origins)
+                           .AllowAnyMethod()
+                           .AllowAnyHeader()
+                           .AllowCredentials();
+                });
+            }
+
+            app.UseRouting();
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+                endpoints.MapHub<DeviceStatusHub>("/devicestatushub");
+                
+                // Add a simple health check at root for easy testing
+                endpoints.MapGet("/health", () => 
+                {
+                    return Results.Ok(new { 
+                        status = "healthy", 
+                        timestamp = DateTime.UtcNow,
+                        service = "WellMonitor",
+                        version = "1.0.0"
+                    });
+                });
+            });
+        });
+    })
     .ConfigureAppConfiguration((context, config) =>
     {
         // Load .env file if it exists (for development)
@@ -43,9 +128,19 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureServices((context, services) =>
     {
+        // Web API services
+        services.AddControllers();
+        services.AddSignalR();
+        services.AddCors();
+        
+        // Register web options with runtime configuration
+        RegisterWebOptions(services, context.Configuration);
+        
         // Register options pattern for services
         services.AddSingleton(gpioOptions);
-        services.AddSingleton(cameraOptions);
+        
+        // Register camera options with runtime configuration
+        RegisterCameraOptions(services, context.Configuration);
         
         // Register additional options classes
         services.AddSingleton(new AlertOptions());
@@ -54,11 +149,33 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton(new PumpAnalysisOptions());
         services.AddSingleton(new PowerManagementOptions());
         services.AddSingleton(new StatusDetectionOptions());
+        services.AddSingleton(new RegionOfInterestOptions
+        {
+            RoiPercent = new RoiCoordinates { X = 10, Y = 10, Width = 80, Height = 80 }
+        });
         
-        // Register Entity Framework DbContext
+        // Register Entity Framework DbContext with explicit logging suppression
         services.AddDbContext<WellMonitorDbContext>(options =>
+        {
             options.UseSqlite(context.Configuration.GetConnectionString("DefaultConnection") 
-                ?? "Data Source=wellmonitor.db"));
+                ?? "Data Source=wellmonitor.db");
+            
+            // Explicitly suppress Entity Framework logging noise
+            options.EnableSensitiveDataLogging(false);
+            options.EnableServiceProviderCaching(true);
+            options.EnableDetailedErrors(false);
+        });
+        
+        // Additional EF logging suppression at service level
+        services.Configure<LoggerFilterOptions>(options =>
+        {
+            // Suppress Entity Framework logging at the provider level
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Database.Command", LogLevel.None, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Database.Transaction", LogLevel.None, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Query", LogLevel.None, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore.Infrastructure", LogLevel.Error, null));
+            options.Rules.Add(new LoggerFilterRule(null, "Microsoft.EntityFrameworkCore", LogLevel.Warning, null));
+        });
         
         // Register core services
         services.AddSingleton<IGpioService, GpioService>();
@@ -67,6 +184,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ISyncService, SyncService>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
         services.AddSingleton<IDeviceTwinService, DeviceTwinService>();
+        
+        // Register web dashboard services (implemented as hosted service)
+        services.AddHostedService<RealtimeUpdateService>();
+        services.AddHostedService<WebConfigurationService>();
         
         // Register OCR services
         RegisterOcrServices(services, context.Configuration);
@@ -142,6 +263,31 @@ logger.LogInformation("Startup process: Dependencies → Hardware → Background
 // The Host.RunAsync() method will start all hosted services in the correct order
 await host.RunAsync();
 
+// Helper method to register web options with runtime configuration
+static void RegisterWebOptions(IServiceCollection services, IConfiguration configuration)
+{
+    // Register runtime configuration source for Web options
+    services.AddSingleton<RuntimeWebOptionsSource>(provider =>
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeWebOptionsSource>>();
+        var source = new RuntimeWebOptionsSource(logger);
+        
+        // Initialize with values from configuration
+        var initialOptions = new WebOptions();
+        configuration.GetSection("Web").Bind(initialOptions);
+        source.UpdateOptions(initialOptions);
+        
+        return source;
+    });
+    
+    // Register the runtime options source as the primary IOptionsMonitor<WebOptions>
+    services.AddSingleton<IOptionsMonitor<WebOptions>>(provider => 
+        provider.GetRequiredService<RuntimeWebOptionsSource>());
+    
+    // Configure Web options from configuration as fallback
+    services.Configure<WebOptions>(configuration.GetSection("Web"));
+}
+
 // Helper method to register the secrets service
 static void RegisterSecretsService(IServiceCollection services, IConfiguration configuration)
 {
@@ -170,8 +316,17 @@ static void RegisterDebugOptions(IServiceCollection services, IConfiguration con
     // Register the runtime options source as the primary IOptionsMonitor<DebugOptions>
     services.AddSingleton<IOptionsMonitor<DebugOptions>>(provider => provider.GetRequiredService<RuntimeDebugOptionsSource>());
     
-    // Register the runtime configuration service (needs both OCR and Debug sources)
-    services.AddSingleton<IRuntimeConfigurationService, RuntimeConfigurationService>();
+    // Register the runtime configuration service (needs OCR, Debug, Web, and Camera sources)
+    services.AddSingleton<IRuntimeConfigurationService>(provider => 
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeConfigurationService>>();
+        var ocrSource = provider.GetRequiredService<RuntimeOcrOptionsSource>();
+        var debugSource = provider.GetRequiredService<RuntimeDebugOptionsSource>();
+        var webSource = provider.GetRequiredService<RuntimeWebOptionsSource>();
+        var cameraSource = provider.GetRequiredService<RuntimeCameraOptionsSource>();
+        
+        return new RuntimeConfigurationService(logger, ocrSource, debugSource, webSource, cameraSource);
+    });
     
     // Configure Debug options from configuration as fallback
     services.Configure<DebugOptions>(configuration.GetSection("Debug"));
@@ -214,6 +369,33 @@ static void RegisterOcrServices(IServiceCollection services, IConfiguration conf
     
     // Register OCR diagnostics service
     services.AddSingleton<OcrDiagnosticsService>();
+}
+
+// Helper method to register camera options with runtime configuration
+static void RegisterCameraOptions(IServiceCollection services, IConfiguration configuration)
+{
+    // Register runtime configuration source for Camera options
+    services.AddSingleton<RuntimeCameraOptionsSource>(provider =>
+    {
+        var logger = provider.GetRequiredService<ILogger<RuntimeCameraOptionsSource>>();
+        var source = new RuntimeCameraOptionsSource(logger);
+        
+        // Initialize with minimal default values - device twin will override these
+        var initialOptions = new CameraOptions();
+        
+        // Only override with configuration values if present
+        configuration.GetSection("Camera").Bind(initialOptions);
+        source.UpdateOptions(initialOptions);
+        
+        return source;
+    });
+    
+    // Register the runtime options source as the primary IOptionsMonitor<CameraOptions>
+    services.AddSingleton<IOptionsMonitor<CameraOptions>>(provider => 
+        provider.GetRequiredService<RuntimeCameraOptionsSource>());
+    
+    // Configure Camera options from configuration as fallback
+    services.Configure<CameraOptions>(configuration.GetSection("Camera"));
 }
 
 // Simple .env file loader

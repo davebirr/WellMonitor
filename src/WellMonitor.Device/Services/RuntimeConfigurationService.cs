@@ -11,6 +11,10 @@ namespace WellMonitor.Device.Services
         void SetInitialOcrOptions(OcrOptions options);
         Task UpdateDebugOptionsAsync(DebugOptions newOptions);
         void SetInitialDebugOptions(DebugOptions options);
+        Task UpdateWebOptionsAsync(WebOptions newOptions);
+        void SetInitialWebOptions(WebOptions options);
+        Task UpdateCameraOptionsAsync(CameraOptions newOptions);
+        void SetInitialCameraOptions(CameraOptions options);
     }
 
     /// <summary>
@@ -23,22 +27,27 @@ namespace WellMonitor.Device.Services
         private readonly ILogger<RuntimeConfigurationService> _logger;
         private readonly RuntimeOcrOptionsSource _runtimeOcrOptionsSource;
         private readonly RuntimeDebugOptionsSource _runtimeDebugOptionsSource;
+        private readonly RuntimeWebOptionsSource _runtimeWebOptionsSource;
+        private readonly RuntimeCameraOptionsSource _runtimeCameraOptionsSource;
 
         public RuntimeConfigurationService(
             ILogger<RuntimeConfigurationService> logger,
             RuntimeOcrOptionsSource runtimeOcrOptionsSource,
-            RuntimeDebugOptionsSource runtimeDebugOptionsSource)
+            RuntimeDebugOptionsSource runtimeDebugOptionsSource,
+            RuntimeWebOptionsSource runtimeWebOptionsSource,
+            RuntimeCameraOptionsSource runtimeCameraOptionsSource)
         {
             _logger = logger;
             _runtimeOcrOptionsSource = runtimeOcrOptionsSource;
             _runtimeDebugOptionsSource = runtimeDebugOptionsSource;
+            _runtimeWebOptionsSource = runtimeWebOptionsSource;
+            _runtimeCameraOptionsSource = runtimeCameraOptionsSource;
         }
 
         public Task UpdateOcrOptionsAsync(OcrOptions newOptions)
         {
             _logger.LogInformation("Updating OCR options at runtime: Provider={Provider}, MinConfidence={MinConfidence}", 
                 newOptions.Provider, newOptions.MinimumConfidence);
-            
             _runtimeOcrOptionsSource.UpdateOptions(newOptions);
             return Task.CompletedTask;
         }
@@ -47,6 +56,21 @@ namespace WellMonitor.Device.Services
         {
             _logger.LogInformation("Setting initial OCR options: Provider={Provider}", options.Provider);
             _runtimeOcrOptionsSource.UpdateOptions(options);
+        }
+
+        public Task UpdateWebOptionsAsync(WebOptions newOptions)
+        {
+            _logger.LogInformation("Updating Web options at runtime: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}",
+                newOptions.Port, newOptions.AllowNetworkAccess, newOptions.BindAddress);
+            _runtimeWebOptionsSource.UpdateOptions(newOptions);
+            return Task.CompletedTask;
+        }
+
+        public void SetInitialWebOptions(WebOptions options)
+        {
+            _logger.LogInformation("Setting initial Web options: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}",
+                options.Port, options.AllowNetworkAccess, options.BindAddress);
+            _runtimeWebOptionsSource.UpdateOptions(options);
         }
 
         public Task UpdateDebugOptionsAsync(DebugOptions newOptions)
@@ -62,6 +86,21 @@ namespace WellMonitor.Device.Services
         {
             _logger.LogInformation("Setting initial Debug options: ImageSaveEnabled={ImageSaveEnabled}", options.ImageSaveEnabled);
             _runtimeDebugOptionsSource.UpdateOptions(options);
+        }
+
+        public Task UpdateCameraOptionsAsync(CameraOptions newOptions)
+        {
+            _logger.LogInformation("Updating Camera options at runtime: Resolution={Width}x{Height}, Gain={Gain}, ShutterSpeed={ShutterSpeed}μs, AutoExposure={AutoExposure}",
+                newOptions.Width, newOptions.Height, newOptions.Gain, newOptions.ShutterSpeedMicroseconds, newOptions.AutoExposure);
+            _runtimeCameraOptionsSource.UpdateOptions(newOptions);
+            return Task.CompletedTask;
+        }
+
+        public void SetInitialCameraOptions(CameraOptions options)
+        {
+            _logger.LogInformation("Setting initial Camera options: Resolution={Width}x{Height}, Gain={Gain}, AutoExposure={AutoExposure}",
+                options.Width, options.Height, options.Gain, options.AutoExposure);
+            _runtimeCameraOptionsSource.UpdateOptions(options);
         }
     }
 

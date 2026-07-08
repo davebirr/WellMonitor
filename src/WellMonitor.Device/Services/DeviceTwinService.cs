@@ -9,19 +9,21 @@ namespace WellMonitor.Device.Services
 {
     public interface IDeviceTwinService
     {
-        Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger);
-        Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
-        Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
+        Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
+        Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
+        Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
+        Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null);
         Task<PumpAnalysisOptions> FetchPumpAnalysisConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<PowerManagementOptions> FetchPowerManagementConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task<StatusDetectionOptions> FetchStatusDetectionConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger);
         Task ReportOcrStatusAsync(DeviceClient deviceClient, IOcrService ocrService, ILogger logger);
         Task LogPeriodicConfigurationSummaryAsync(DeviceClient deviceClient, CameraOptions cameraOptions, ILogger logger);
+        Task UpdateCameraExposureModeAsync(CameraExposureMode exposureMode);
     }
 
     public class DeviceTwinService : IDeviceTwinService
     {
-        public async Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger)
+        public async Task<DeviceTwinConfig> FetchAndApplyConfigAsync(DeviceClient deviceClient, IConfiguration configuration, GpioOptions gpioOptions, CameraOptions cameraOptions, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             // Fetch device twin properties
             Twin twin = await deviceClient.GetTwinAsync();
@@ -70,7 +72,7 @@ namespace WellMonitor.Device.Services
             }
 
             // Camera configuration from device twin (with fallback to defaults)
-            UpdateCameraOptionsFromDeviceTwin(desired, configuration, cameraOptions, logger);
+            await UpdateCameraOptionsFromDeviceTwin(desired, configuration, cameraOptions, logger, runtimeConfigService);
 
             // Create config object for validation
             var config = new DeviceTwinConfig
@@ -107,7 +109,7 @@ namespace WellMonitor.Device.Services
             return config;
         }
 
-        private void UpdateCameraOptionsFromDeviceTwin(TwinCollection desired, IConfiguration configuration, CameraOptions cameraOptions, ILogger logger)
+        private async Task UpdateCameraOptionsFromDeviceTwin(TwinCollection desired, IConfiguration configuration, CameraOptions cameraOptions, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             logger.LogInformation("🔧 Updating camera configuration from device twin...");
             
@@ -159,12 +161,24 @@ namespace WellMonitor.Device.Services
             {
                 logger.LogInformation("Camera configuration validated successfully from device twin");
             }
+
+            // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+            if (runtimeConfigService != null)
+            {
+                logger.LogInformation("🔄 Updating runtime camera configuration with device twin values...");
+                await runtimeConfigService.UpdateCameraOptionsAsync(cameraOptions);
+                logger.LogInformation("✅ Runtime camera configuration updated successfully");
+            }
+            else
+            {
+                logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+            }
         }
 
         /// <summary>
         /// Fetch and apply OCR configuration from device twin
         /// </summary>
-        public async Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        public async Task<OcrOptions> FetchAndApplyOcrConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             try
             {
@@ -228,6 +242,18 @@ namespace WellMonitor.Device.Services
 
                 logger.LogInformation("OCR configuration loaded from device twin: Provider={Provider}, MinConfidence={MinConfidence}, Preprocessing={Preprocessing}",
                     ocrOptions.Provider, ocrOptions.MinimumConfidence, ocrOptions.EnablePreprocessing);
+
+                // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+                if (runtimeConfigService != null)
+                {
+                    logger.LogInformation("🔄 Updating runtime OCR configuration with device twin values...");
+                    await runtimeConfigService.UpdateOcrOptionsAsync(ocrOptions);
+                    logger.LogInformation("✅ Runtime OCR configuration updated successfully");
+                }
+                else
+                {
+                    logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+                }
 
                 return ocrOptions;
             }
@@ -385,7 +411,7 @@ namespace WellMonitor.Device.Services
         /// <summary>
         /// Fetch and apply debug configuration from device twin
         /// </summary>
-        public async Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger)
+        public async Task<DebugOptions> FetchAndApplyDebugConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
         {
             try
             {
@@ -393,16 +419,89 @@ namespace WellMonitor.Device.Services
                 TwinCollection desired = twin.Properties.Desired;
 
                 var debugOptions = new DebugOptions();
+                var fromDeviceTwin = new List<string>();
+                var fromDefaults = new List<string>();
 
                 // Load debug settings from device twin with fallbacks
-                debugOptions.DebugMode = desired.Contains("debugMode") ? (bool)desired["debugMode"] : configuration.GetValue("Debug:DebugMode", false);
-                debugOptions.ImageSaveEnabled = desired.Contains("debugImageSaveEnabled") ? (bool)desired["debugImageSaveEnabled"] : configuration.GetValue("Debug:ImageSaveEnabled", false);
-                debugOptions.ImageRetentionDays = desired.Contains("debugImageRetentionDays") ? (int)desired["debugImageRetentionDays"] : configuration.GetValue("Debug:ImageRetentionDays", 7);
-                debugOptions.LogLevel = desired.Contains("logLevel") ? (string)desired["logLevel"] : configuration.GetValue("Debug:LogLevel", "Information");
-                debugOptions.EnableVerboseOcrLogging = desired.Contains("enableVerboseOcrLogging") ? (bool)desired["enableVerboseOcrLogging"] : configuration.GetValue("Debug:EnableVerboseOcrLogging", false);
+                if (desired.Contains("debugMode"))
+                {
+                    debugOptions.DebugMode = (bool)desired["debugMode"];
+                    fromDeviceTwin.Add($"debugMode={debugOptions.DebugMode}");
+                }
+                else
+                {
+                    debugOptions.DebugMode = configuration.GetValue("Debug:DebugMode", false);
+                    fromDefaults.Add($"debugMode={debugOptions.DebugMode}");
+                }
 
-                logger.LogInformation("Debug configuration loaded from device twin: DebugMode={DebugMode}, ImageSave={ImageSave}, LogLevel={LogLevel}, VerboseOCR={VerboseOCR}",
+                if (desired.Contains("debugImageSaveEnabled"))
+                {
+                    debugOptions.ImageSaveEnabled = (bool)desired["debugImageSaveEnabled"];
+                    fromDeviceTwin.Add($"debugImageSaveEnabled={debugOptions.ImageSaveEnabled}");
+                }
+                else
+                {
+                    debugOptions.ImageSaveEnabled = configuration.GetValue("Debug:ImageSaveEnabled", false);
+                    fromDefaults.Add($"debugImageSaveEnabled={debugOptions.ImageSaveEnabled}");
+                }
+
+                if (desired.Contains("debugImageRetentionDays"))
+                {
+                    debugOptions.ImageRetentionDays = (int)desired["debugImageRetentionDays"];
+                    fromDeviceTwin.Add($"debugImageRetentionDays={debugOptions.ImageRetentionDays}");
+                }
+                else
+                {
+                    debugOptions.ImageRetentionDays = configuration.GetValue("Debug:ImageRetentionDays", 7);
+                    fromDefaults.Add($"debugImageRetentionDays={debugOptions.ImageRetentionDays}");
+                }
+
+                if (desired.Contains("logLevel"))
+                {
+                    debugOptions.LogLevel = (string)desired["logLevel"];
+                    fromDeviceTwin.Add($"logLevel={debugOptions.LogLevel}");
+                }
+                else
+                {
+                    debugOptions.LogLevel = configuration.GetValue("Debug:LogLevel", "Information");
+                    fromDefaults.Add($"logLevel={debugOptions.LogLevel}");
+                }
+
+                if (desired.Contains("enableVerboseOcrLogging"))
+                {
+                    debugOptions.EnableVerboseOcrLogging = (bool)desired["enableVerboseOcrLogging"];
+                    fromDeviceTwin.Add($"enableVerboseOcrLogging={debugOptions.EnableVerboseOcrLogging}");
+                }
+                else
+                {
+                    debugOptions.EnableVerboseOcrLogging = configuration.GetValue("Debug:EnableVerboseOcrLogging", false);
+                    fromDefaults.Add($"enableVerboseOcrLogging={debugOptions.EnableVerboseOcrLogging}");
+                }
+
+                logger.LogInformation("📡 Debug configuration sources:");
+                if (fromDeviceTwin.Any())
+                {
+                    logger.LogInformation("  ✅ From Device Twin: {DeviceTwinSettings}", string.Join(", ", fromDeviceTwin));
+                }
+                if (fromDefaults.Any())
+                {
+                    logger.LogInformation("  ⚠️  From Defaults/Config: {DefaultSettings}", string.Join(", ", fromDefaults));
+                }
+
+                logger.LogInformation("🔧 Final Debug Configuration: DebugMode={DebugMode}, ImageSaveEnabled={ImageSave}, LogLevel={LogLevel}, VerboseOCR={VerboseOCR}",
                     debugOptions.DebugMode, debugOptions.ImageSaveEnabled, debugOptions.LogLevel, debugOptions.EnableVerboseOcrLogging);
+
+                // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+                if (runtimeConfigService != null)
+                {
+                    logger.LogInformation("🔄 Updating runtime debug configuration with device twin values...");
+                    await runtimeConfigService.UpdateDebugOptionsAsync(debugOptions);
+                    logger.LogInformation("✅ Runtime debug configuration updated successfully");
+                }
+                else
+                {
+                    logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+                }
 
                 return debugOptions;
             }
@@ -410,6 +509,54 @@ namespace WellMonitor.Device.Services
             {
                 logger.LogError(ex, "Failed to fetch debug configuration from device twin, using defaults");
                 return new DebugOptions();
+            }
+        }
+
+        /// <summary>
+        /// Fetch and apply web dashboard configuration from device twin
+        /// </summary>
+        public async Task<WebOptions> FetchAndApplyWebConfigAsync(DeviceClient deviceClient, IConfiguration configuration, ILogger logger, IRuntimeConfigurationService? runtimeConfigService = null)
+        {
+            try
+            {
+                Twin twin = await deviceClient.GetTwinAsync();
+                TwinCollection desired = twin.Properties.Desired;
+
+                var webOptions = new WebOptions();
+
+                // Load web settings from device twin with fallbacks
+                webOptions.Port = desired.Contains("webPort") ? (int)desired["webPort"] : configuration.GetValue("Web:Port", 5000);
+                webOptions.AllowNetworkAccess = desired.Contains("webAllowNetworkAccess") ? (bool)desired["webAllowNetworkAccess"] : configuration.GetValue("Web:AllowNetworkAccess", false);
+                webOptions.BindAddress = desired.Contains("webBindAddress") ? (string)desired["webBindAddress"] : configuration.GetValue("Web:BindAddress", "127.0.0.1");
+                webOptions.EnableHttps = desired.Contains("webEnableHttps") ? (bool)desired["webEnableHttps"] : configuration.GetValue("Web:EnableHttps", false);
+                webOptions.HttpsPort = desired.Contains("webHttpsPort") ? (int)desired["webHttpsPort"] : configuration.GetValue("Web:HttpsPort", 5001);
+                webOptions.CorsOrigins = desired.Contains("webCorsOrigins") ? (string)desired["webCorsOrigins"] : configuration.GetValue("Web:CorsOrigins", "");
+                webOptions.EnableAuthentication = desired.Contains("webEnableAuthentication") ? (bool)desired["webEnableAuthentication"] : configuration.GetValue("Web:EnableAuthentication", false);
+                webOptions.AuthUsername = desired.Contains("webAuthUsername") ? (string)desired["webAuthUsername"] : configuration.GetValue("Web:AuthUsername", "admin");
+
+                // Note: We don't load AuthPassword from device twin for security reasons
+
+                logger.LogInformation("Web configuration loaded from device twin: Port={Port}, NetworkAccess={NetworkAccess}, BindAddress={BindAddress}, HTTPS={HTTPS}",
+                    webOptions.Port, webOptions.AllowNetworkAccess, webOptions.BindAddress, webOptions.EnableHttps);
+
+                // **CRITICAL FIX**: Update runtime configuration service so IOptionsMonitor gets updated values
+                if (runtimeConfigService != null)
+                {
+                    logger.LogInformation("🔄 Updating runtime web configuration with device twin values...");
+                    await runtimeConfigService.UpdateWebOptionsAsync(webOptions);
+                    logger.LogInformation("✅ Runtime web configuration updated successfully");
+                }
+                else
+                {
+                    logger.LogWarning("⚠️ Runtime configuration service not provided - IOptionsMonitor will not be updated");
+                }
+
+                return webOptions;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to fetch web configuration from device twin, using defaults");
+                return new WebOptions();
             }
         }
 
@@ -602,6 +749,15 @@ namespace WellMonitor.Device.Services
             UpdateCameraSetting(cameraConfig, "AutoWhiteBalance", val => cameraOptions.AutoWhiteBalance = (bool)val, 
                 () => cameraOptions.AutoWhiteBalance, settingsFromDeviceTwin, settingsFromDefaults);
             
+            UpdateCameraSetting(cameraConfig, "ExposureMode", val => 
+                {
+                    if (Enum.TryParse<CameraExposureMode>((string)val, true, out var mode))
+                        cameraOptions.ExposureMode = mode;
+                    else
+                        logger.LogWarning("Invalid exposure mode '{Mode}' from device twin, using default", val);
+                }, 
+                () => cameraOptions.ExposureMode.ToString(), settingsFromDeviceTwin, settingsFromDefaults);
+            
             UpdateCameraSetting(cameraConfig, "EnablePreview", val => cameraOptions.EnablePreview = (bool)val, 
                 () => cameraOptions.EnablePreview, settingsFromDeviceTwin, settingsFromDefaults);
             
@@ -743,6 +899,25 @@ namespace WellMonitor.Device.Services
             else
             {
                 settingsFromDefaults.Add($"AutoWhiteBalance={cameraOptions.AutoWhiteBalance} (default)");
+            }
+            
+            if (desired.Contains("cameraExposureMode"))
+            {
+                var exposureModeString = (string)desired["cameraExposureMode"];
+                if (Enum.TryParse<CameraExposureMode>(exposureModeString, true, out var mode))
+                {
+                    cameraOptions.ExposureMode = mode;
+                    settingsFromDeviceTwin.Add($"ExposureMode={cameraOptions.ExposureMode}");
+                }
+                else
+                {
+                    logger.LogWarning("Invalid exposure mode '{Mode}' from device twin, using default", exposureModeString);
+                    settingsFromDefaults.Add($"ExposureMode={cameraOptions.ExposureMode} (invalid value, using default)");
+                }
+            }
+            else
+            {
+                settingsFromDefaults.Add($"ExposureMode={cameraOptions.ExposureMode} (default)");
             }
             
             if (desired.Contains("cameraEnablePreview"))
@@ -898,6 +1073,24 @@ namespace WellMonitor.Device.Services
         {
             var legacyProperties = new[] { "cameraWidth", "cameraHeight", "cameraGain", "cameraShutterSpeedMicroseconds" };
             return legacyProperties.Any(prop => desired.Contains(prop));
+        }
+
+        /// <summary>
+        /// Updates the camera exposure mode configuration
+        /// This method updates the runtime configuration but does not persist to device twin
+        /// </summary>
+        /// <param name="exposureMode">The exposure mode to set</param>
+        public async Task UpdateCameraExposureModeAsync(CameraExposureMode exposureMode)
+        {
+            await Task.CompletedTask; // Async signature for future extensibility
+            
+            // For now, this method provides an interface for future device twin updates
+            // In a production scenario, this would update the device twin reported properties
+            // and potentially trigger a device twin desired property update
+            
+            // TODO: Implement device twin update logic when DeviceClient is available
+            // This would require access to the DeviceClient instance, which is currently
+            // managed at the application level rather than the service level
         }
     }
 

@@ -12,13 +12,14 @@ namespace WellMonitor.Device.Tests
     {
         private readonly Mock<ILogger<CameraService>> _mockLogger;
         private readonly Mock<IOptionsMonitor<DebugOptions>> _mockDebugOptions;
-        private readonly CameraOptions _cameraOptions;
+        private readonly Mock<IOptionsMonitor<CameraOptions>> _mockCameraOptions;
         private readonly CameraService _cameraService;
 
         public CameraServiceTests()
         {
             _mockLogger = new Mock<ILogger<CameraService>>();
             _mockDebugOptions = new Mock<IOptionsMonitor<DebugOptions>>();
+            _mockCameraOptions = new Mock<IOptionsMonitor<CameraOptions>>();
             
             // Setup debug options mock
             _mockDebugOptions.Setup(x => x.CurrentValue).Returns(new DebugOptions
@@ -28,7 +29,8 @@ namespace WellMonitor.Device.Tests
                 ImageRetentionDays = 7
             });
             
-            _cameraOptions = new CameraOptions
+            // Setup camera options mock
+            _mockCameraOptions.Setup(x => x.CurrentValue).Returns(new CameraOptions
             {
                 Width = 1920,
                 Height = 1080,
@@ -40,9 +42,14 @@ namespace WellMonitor.Device.Tests
                 Contrast = 0,
                 Saturation = 0,
                 EnablePreview = false,
-                DebugImagePath = "./debug_images"
-            };
-            _cameraService = new CameraService(_mockLogger.Object, _cameraOptions, _mockDebugOptions.Object);
+                DebugImagePath = "./debug_images",
+                Gain = 1.0,
+                ShutterSpeedMicroseconds = 0,
+                AutoExposure = true,
+                AutoWhiteBalance = true
+            });
+            
+            _cameraService = new CameraService(_mockLogger.Object, _mockCameraOptions.Object, _mockDebugOptions.Object);
         }
 
         [Fact]
@@ -65,17 +72,18 @@ namespace WellMonitor.Device.Tests
         [Fact]
         public void CameraOptions_HasCorrectDefaults()
         {
-            Assert.Equal(1920, _cameraOptions.Width);
-            Assert.Equal(1080, _cameraOptions.Height);
-            Assert.Equal(85, _cameraOptions.Quality);
-            Assert.Equal(30000, _cameraOptions.TimeoutMs);
-            Assert.Equal(2000, _cameraOptions.WarmupTimeMs);
-            Assert.Equal(0, _cameraOptions.Rotation);
-            Assert.Equal(50, _cameraOptions.Brightness);
-            Assert.Equal(0, _cameraOptions.Contrast);
-            Assert.Equal(0, _cameraOptions.Saturation);
-            Assert.False(_cameraOptions.EnablePreview);
-            Assert.Equal("./debug_images", _cameraOptions.DebugImagePath);
+            var options = _mockCameraOptions.Object.CurrentValue;
+            Assert.Equal(1920, options.Width);
+            Assert.Equal(1080, options.Height);
+            Assert.Equal(85, options.Quality);
+            Assert.Equal(30000, options.TimeoutMs);
+            Assert.Equal(2000, options.WarmupTimeMs);
+            Assert.Equal(0, options.Rotation);
+            Assert.Equal(50, options.Brightness);
+            Assert.Equal(0, options.Contrast);
+            Assert.Equal(0, options.Saturation);
+            Assert.False(options.EnablePreview);
+            Assert.Equal("./debug_images", options.DebugImagePath);
         }
     }
 }

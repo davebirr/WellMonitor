@@ -307,6 +307,99 @@ sudo journalctl -u wellmonitor | grep -i "configuration\|device.*twin"
 - Keep API keys in environment variables, not device twin
 - Regularly rotate access keys
 
+## Configuration Logging and Validation
+
+### Enhanced Logging Features
+
+The WellMonitor device provides comprehensive logging for configuration management:
+
+#### Nested Property Support
+- **Preferred Structure**: Use nested properties (e.g., `Camera.Gain`)
+- **Legacy Support**: Flat properties still supported (e.g., `cameraGain`)
+- **Automatic Fallback**: Falls back to legacy if nested not found
+- **Conflict Detection**: Warns when both nested and legacy exist
+
+#### Configuration Source Tracking
+```
+✅ Camera settings loaded from device twin: Gain=0.5, ShutterSpeedMicroseconds=5000
+🔸 Camera settings using default values: Width=1920 (default), Height=1080 (default)
+⚠️ Using legacy property 'cameraGain' - consider migrating to 'Camera.Gain'
+```
+
+#### Validation Warnings
+The system automatically detects problematic configurations:
+
+```
+⚠️ High camera gain (12.0) detected - may cause overexposure with bright LEDs
+⚠️ Auto-exposure enabled - may cause inconsistent exposure with LED displays
+⚠️ Long shutter speed (50000μs) - may cause motion blur or overexposure
+⚠️ Debug image path uses absolute path - consider relative path for portability
+```
+
+#### Startup Configuration Summary
+```
+📸 Final Camera Configuration:
+   Image: 1280x720, Quality: 85%, Rotation: 0°
+   Exposure: Manual (Gain=0.5, Shutter=5000μs)
+   Processing: AutoExposure=false, AutoWhiteBalance=false
+   Debug: Enabled (Path=debug_images)
+
+🔍 Final OCR Configuration:
+   Provider: Tesseract (Fallback: Azure Cognitive Services)
+   Confidence: 60% minimum, Preprocessing: Enabled
+   Language: English, Character Set: 0123456789.DryAMPSrcyc
+   Performance: ~95% success rate, ~250ms average processing
+```
+
+### Configuration Validation Rules
+
+#### Camera Settings
+- **Gain Range**: 0.1 - 16.0 (warn if > 2.0 for LED displays)
+- **Shutter Speed**: 100 - 100000 microseconds (warn if > 20000)
+- **Auto Features**: Warn if auto-exposure/white-balance enabled for LED monitoring
+- **Resolution**: Validate width/height are supported by camera
+
+#### OCR Settings
+- **Confidence**: 0.0 - 100.0 (recommend 60-80 for pump displays)
+- **Provider**: Validate provider is available and configured
+- **Character Whitelist**: Ensure includes digits and expected status text
+- **Processing**: Validate image preprocessing parameters are reasonable
+
+#### Monitoring Settings
+- **Intervals**: Minimum 10 seconds between captures (prevent overload)
+- **Retention**: Maximum 365 days for local storage
+- **Paths**: Prefer relative paths for portability
+- **Thresholds**: Validate current ranges match pump specifications
+
+### Configuration Migration
+
+#### From Legacy to Nested Properties
+Use the PowerShell script to migrate configurations:
+
+```powershell
+# Run property name migration script
+./scripts/diagnostics/fix-camera-property-names.ps1 -DeviceId "your-device-id"
+```
+
+#### Manual Migration Example
+```json
+// Old (Legacy) - Still Supported
+{
+  "cameraGain": 0.5,
+  "cameraShutterSpeedMicroseconds": 5000,
+  "cameraAutoExposure": false
+}
+
+// New (Preferred) - Better Organization
+{
+  "Camera": {
+    "Gain": 0.5,
+    "ShutterSpeedMicroseconds": 5000,
+    "AutoExposure": false
+  }
+}
+```
+
 ### Performance Optimization
 - Balance monitoring frequency with system load
 - Use appropriate image resolution (1280x720 recommended)
@@ -315,3 +408,174 @@ sudo journalctl -u wellmonitor | grep -i "configuration\|device.*twin"
 
 For specific hardware setup, see [Camera & OCR Setup](camera-ocr-setup.md).
 For Azure service configuration, see [Azure Integration](azure-integration.md).
+
+## Region of Interest (ROI) Configuration
+
+### Overview
+ROI (Region of Interest) processing focuses OCR analysis on just the 7-segment LED display area, eliminating interference from switches, labels, and background elements. This dramatically improves accuracy and processing speed.
+
+### ROI Benefits
+- **3-5x Faster Processing**: Smaller images process much faster
+- **Higher Accuracy**: Eliminates false positives from irrelevant text
+- **Better LED Recognition**: Higher pixel density for digits
+- **Reduced CPU Usage**: Less data to process
+- **Remote Calibration**: Adjustable via device twin
+
+### ROI Configuration Options
+
+#### Basic ROI Setup
+```json
+{
+  "RegionOfInterest": {
+    "EnableRoi": true,
+    "RoiPercent": {
+      "X": 0.30,
+      "Y": 0.35, 
+      "Width": 0.40,
+      "Height": 0.25
+    },
+    "EnableAutoDetection": false,
+    "ExpansionMargin": 15
+  }
+}
+```
+
+#### ROI Coordinate System
+- **X**: Horizontal start position (0.0 = left edge, 1.0 = right edge)
+- **Y**: Vertical start position (0.0 = top edge, 1.0 = bottom edge)  
+- **Width**: ROI width as percentage of image width
+- **Height**: ROI height as percentage of image height
+
+Example: `X=0.30, Y=0.35, Width=0.40, Height=0.25`
+- Starts 30% from left, 35% from top
+- Covers 40% of image width, 25% of image height
+- Results in ROI at center-left of image
+
+### ROI Calibration Process
+
+#### Step 1: Capture Full Images
+```bash
+# Enable debug images to see full captures
+# Set via device twin: "debugImageSaveEnabled": true
+
+# Restart service to capture new images
+sudo systemctl restart wellmonitor
+
+# Wait for several captures
+sleep 60
+
+# Check captured images
+ls -la /var/lib/wellmonitor/debug_images/
+```
+
+#### Step 2: Analyze LED Display Position
+```bash
+# Copy latest image to analyze
+scp pi@your-pi-ip:/var/lib/wellmonitor/debug_images/pump_reading_*.jpg ./
+
+# View image and identify LED display location
+# Note the approximate coordinates of the 7-segment display
+```
+
+#### Step 3: Calculate ROI Coordinates
+For a 1920x1080 image with LED display at:
+- **Left edge**: 600 pixels from left (600/1920 = 0.31)
+- **Top edge**: 400 pixels from top (400/1080 = 0.37)  
+- **Display width**: 720 pixels (720/1920 = 0.375)
+- **Display height**: 200 pixels (200/1080 = 0.185)
+
+**Resulting ROI Configuration:**
+```json
+{
+  "RoiPercent": {
+    "X": 0.31,
+    "Y": 0.37,
+    "Width": 0.375, 
+    "Height": 0.185
+  }
+}
+```
+
+#### Step 4: Update Device Twin
+```powershell
+# Use PowerShell script to update ROI settings
+.\scripts\configuration\update-device-twin.ps1 `
+  -IoTHubName "YourHub" `
+  -DeviceId "YourDevice" `
+  -ConfigType "roi" `
+  -RoiX 0.31 `
+  -RoiY 0.37 `
+  -RoiWidth 0.375 `
+  -RoiHeight 0.185
+```
+
+#### Step 5: Validate ROI Results
+```bash
+# Monitor OCR results after ROI configuration
+sudo journalctl -u wellmonitor -f | grep -i "ocr\|confidence\|roi"
+
+# Check for ROI debug images
+ls -la /var/lib/wellmonitor/debug_images/roi_*
+
+# Verify improved OCR confidence scores
+sudo journalctl -u wellmonitor | grep "confidence" | tail -10
+```
+
+### ROI Debug Images
+
+When ROI is enabled, additional debug images are saved:
+
+```
+debug_images/
+├── pump_reading_20250713_143022.jpg      # Original full image
+├── roi_extracted_20250713_143022.jpg     # Cropped ROI area only
+├── roi_overlay_20250713_143022.jpg       # Full image with ROI boundary shown
+└── roi_processed_20250713_143022.jpg     # ROI after preprocessing
+```
+
+### Advanced ROI Features
+
+#### Automatic LED Detection (Experimental)
+```json
+{
+  "RegionOfInterest": {
+    "EnableAutoDetection": true,
+    "LedBrightnessThreshold": 180,
+    "ExpansionMargin": 20
+  }
+}
+```
+
+This attempts to automatically find bright LED displays, but manual configuration is more reliable.
+
+#### Multiple ROI Profiles
+```json
+{
+  "RoiProfiles": {
+    "Standard": { "X": 0.30, "Y": 0.35, "Width": 0.40, "Height": 0.25 },
+    "HighMount": { "X": 0.25, "Y": 0.20, "Width": 0.50, "Height": 0.30 },
+    "CloseUp": { "X": 0.15, "Y": 0.25, "Width": 0.70, "Height": 0.50 }
+  },
+  "ActiveProfile": "Standard"
+}
+```
+
+### Troubleshooting ROI Issues
+
+#### ROI Too Small - Missing LED Digits
+**Symptoms**: OCR confidence drops, missing digits
+**Solution**: Increase Width and Height values
+
+#### ROI Too Large - Background Interference  
+**Symptoms**: False positives, incorrect readings
+**Solution**: Decrease Width and Height to focus on LED area only
+
+#### ROI Misaligned - No LED Content
+**Symptoms**: Very low confidence, no text detected
+**Solution**: Adjust X and Y coordinates to center on LED display
+
+#### Camera Movement - ROI No Longer Valid
+**Symptoms**: Sudden drop in OCR accuracy after working well
+**Solution**: Recalibrate ROI coordinates for new camera position
+
+### Performance Optimization

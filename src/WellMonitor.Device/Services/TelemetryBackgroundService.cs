@@ -153,7 +153,7 @@ namespace WellMonitor.Device.Services
                 }
                 
                 // Get Azure IoT Hub connection string
-                var iotHubConnectionString = await secretsService.GetSecretAsync("WELLMONITOR_IOTHUB_CONNECTION_STRING");
+                var iotHubConnectionString = await secretsService.GetIotHubConnectionStringAsync();
                 if (string.IsNullOrEmpty(iotHubConnectionString))
                 {
                     _logger.LogWarning("Unable to log periodic configuration - Azure IoT Hub connection string not available");
